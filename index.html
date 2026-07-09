@@ -1,0 +1,143 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <title>Bimbo Inventory Pro</title>
+  <meta name="theme-color" content="#d71920" />
+  <link rel="manifest" href="manifest.json" />
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <header class="app-header">
+    <div>
+      <h1>Bimbo Inventory Pro</h1>
+      <p>Warehouse Route Count</p>
+    </div>
+    <button id="installBtn" class="install-btn hidden">Instalar</button>
+  </header>
+
+  <main class="app-shell">
+    <section class="route-card">
+      <label for="routeInput">Ruta</label>
+      <input id="routeInput" type="text" inputmode="numeric" placeholder="Ejemplo: 2306" />
+
+      <div class="totals-grid">
+        <div class="total-box"><strong id="totalSku">0</strong><span>SKU</span></div>
+        <div class="total-box"><strong id="totalCases">0</strong><span>Cajas</span></div>
+        <div class="total-box"><strong id="totalUnits">0</strong><span>Unidades</span></div>
+      </div>
+    </section>
+
+    <section class="scanner-card">
+      <div class="section-title-row">
+        <h2>Escáner continuo</h2>
+        <span id="statusPill" class="status-pill off">Inactivo</span>
+      </div>
+
+      <div id="reader" class="reader-box">
+        <div class="reader-placeholder">
+          <img src="default-product.svg" alt="Bimbo default" class="placeholder-img">
+          <p>Presiona Cámara para iniciar.<br>Con NETUM Bluetooth solo escanea.</p>
+        </div>
+      </div>
+
+      <div class="button-row">
+        <button id="startBtn" class="primary-btn">📷 Cámara</button>
+        <button id="stopBtn" class="dark-btn">Detener</button>
+      </div>
+
+      <label for="scannerInput" class="manual-label">Scanner Bluetooth / Manual</label>
+      <input id="scannerInput" type="text" autocomplete="off" inputmode="numeric" placeholder="Escanea UPC/SKU aquí" />
+      <p class="help-text">NETUM C740 funciona como teclado. Cuando termina el scan presiona Enter automáticamente.</p>
+    </section>
+
+    <section class="actions-card">
+      <div class="button-grid">
+        <button id="addProductBtn" class="yellow-btn">+ Agregar producto</button>
+        <button id="exportBtn" class="blue-btn">Exportar CSV</button>
+        <button id="whatsappBtn" class="green-btn">WhatsApp</button>
+        <button id="clearBtn" class="red-light-btn">Limpiar conteo</button>
+      </div>
+    </section>
+
+    <section class="upload-card">
+      <h2>Base de productos</h2>
+      <p class="help-text">Sube un CSV con columnas: UPC, SKU, Producto, UnidadesCaja, Foto</p>
+      <input id="csvInput" type="file" accept=".csv" />
+      <div class="button-row">
+        <button id="templateBtn" class="dark-btn">Descargar plantilla CSV</button>
+        <button id="resetDbBtn" class="red-light-btn">Reset BD</button>
+      </div>
+    </section>
+
+    <section class="list-title-row">
+      <h2>Productos escaneados</h2>
+      <span id="lastScanText">Sin scans</span>
+    </section>
+
+    <section id="productList" class="product-list">
+      <div class="empty-state">Todavía no hay productos escaneados.</div>
+    </section>
+  </main>
+
+  <div id="productModal" class="modal hidden" role="dialog" aria-modal="true">
+    <div class="modal-card">
+      <div class="modal-head">
+        <h2>Agregar / editar producto</h2>
+        <button id="closeModalBtn" class="close-btn">×</button>
+      </div>
+      <p class="help-text">Escanea el código con NETUM o cámara, luego completa el nombre, unidades por caja y URL de imagen.</p>
+
+      <label for="newUpc">UPC / Código</label>
+      <input id="newUpc" type="text" inputmode="numeric" placeholder="Escanea o escribe UPC" />
+
+      <label for="newSku">SKU</label>
+      <input id="newSku" type="text" placeholder="Ejemplo: 8444" />
+
+      <label for="newName">Nombre del producto</label>
+      <input id="newName" type="text" placeholder="Ejemplo: Rosca de Reyes" />
+
+      <label for="newUnits">Unidades por caja</label>
+      <input id="newUnits" type="number" min="1" value="1" />
+
+      <label for="newPhoto">URL de imagen</label>
+      <input id="newPhoto" type="url" placeholder="https://... imagen del producto" />
+
+      <div class="preview-row">
+        <img id="newPhotoPreview" src="default-product.svg" alt="Preview">
+        <span>Si no agregas imagen, se usará imagen por defecto.</span>
+      </div>
+
+      <div class="button-row">
+        <button id="saveProductBtn" class="primary-btn">Guardar producto</button>
+        <button id="useLastCodeBtn" class="dark-btn">Usar último código</button>
+      </div>
+    </div>
+  </div>
+
+  <template id="productCardTemplate">
+    <article class="product-card">
+      <div class="product-photo"></div>
+      <div class="product-info">
+        <h3></h3>
+        <p class="sku-line"></p>
+        <p class="upc-line"></p>
+        <div class="qty-grid">
+          <div><strong class="case-count">0</strong><span>Cajas</span></div>
+          <div><strong class="unit-count">0</strong><span>Unidades</span></div>
+        </div>
+        <div class="qty-buttons">
+          <button class="minus-btn">−</button>
+          <button class="plus-btn">+</button>
+          <button class="edit-product-btn">Editar datos</button>
+        </div>
+      </div>
+      <button class="delete-btn">🗑</button>
+    </article>
+  </template>
+
+  <script src="https://unpkg.com/html5-qrcode" type="text/javascript"></script>
+  <script src="app.js"></script>
+</body>
+</html>

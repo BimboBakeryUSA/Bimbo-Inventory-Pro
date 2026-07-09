@@ -1,0 +1,37 @@
+[
+  {
+    "UPC": "757528008680",
+    "SKU": "1001",
+    "Producto": "Takis Fuego",
+    "UnidadesCaja": 12,
+    "Foto": ""
+  },
+  {
+    "UPC": "757528045609",
+    "SKU": "1002",
+    "Producto": "Takis Blue Heat",
+    "UnidadesCaja": 12,
+    "Foto": ""
+  },
+  {
+    "UPC": "757528046224",
+    "SKU": "1003",
+    "Producto": "Takis Intense Nacho",
+    "UnidadesCaja": 12,
+    "Foto": ""
+  },
+  {
+    "UPC": "757528044664",
+    "SKU": "1004",
+    "Producto": "Takis Nitro",
+    "UnidadesCaja": 12,
+    "Foto": ""
+  },
+  {
+    "UPC": "7432358480",
+    "SKU": "8444",
+    "Producto": "Rosca de Reyes",
+    "UnidadesCaja": 5,
+    "Foto": ""
+  }
+]
