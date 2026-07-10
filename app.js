@@ -83,13 +83,16 @@ function saveAll() {
 // RENDER
 // =======================
 function render() {
-  console.log("🎨 Renderizando...");
-
   const list = $("productList");
-  if (!list) {
-    console.error("❌ No existe productList");
-    return;
-  }
+  list.innerHTML = "";
+
+  Object.values(counts).forEach(item => {
+    const div = document.createElement("div");
+    div.textContent = item.code + " = " + item.cantidad;
+    list.appendChild(div);
+  });
+}
+``
 
   list.innerHTML = "";
 
