@@ -124,10 +124,14 @@ async function startCamera() {
 
     await html5QrCode.start(
       { facingMode: "environment" },
-      { fps: 10 },
-      (decodedText) => {
-        console.log("✅ Scan:", decodedText);
-      }
+     {
+  fps: 12,
+  qrbox: { width: 250, height: 250 }
+},
+(decodedText) => {
+  alert("SCAN: " + decodedText);
+  console.log("✅ Scan:", decodedText);
+}
     );
 
     scanning = true;
