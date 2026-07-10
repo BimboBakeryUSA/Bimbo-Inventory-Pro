@@ -20,7 +20,7 @@ let lastScanTime = 0;
 let deferredPrompt = null;
 
 const $ = (id) => document.getElementById(id);
-alert("APP.JS EJECUTANDO");
+alert("APP.JS EJECUTANDO"); 
 
 async function loadProducts(){
   const saved = localStorage.getItem("bip_products");
