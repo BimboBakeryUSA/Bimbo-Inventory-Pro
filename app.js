@@ -1,4 +1,4 @@
-alert("APP.JS CARGADO ✅ SOLO");
+alert("APP.JS CARGADO ✅ SCAN PROCESADO");
 // ======================= 
 // GLOBAL ERROR HANDLER
 // ======================= 
@@ -141,7 +141,30 @@ async function startCamera() {
 // =======================
 // EVENTS
 // =======================
+
+function processBarcode(code) {
+  alert("SCAN PROCESADO: " + code);
+}
 function setupEvents() {
+
+  const exportBtn = $("exportBtn");
+const whatsappBtn = $("whatsappBtn");
+const addProductBtn = $("addProductBtn");
+const scannerInput = $("scannerInput");
+
+if (exportBtn) exportBtn.onclick = () => alert("Exportar funcionando");
+if (whatsappBtn) whatsappBtn.onclick = () => alert("WhatsApp funcionando");
+if (addProductBtn) addProductBtn.onclick = () => alert("Agregar funcionando");
+
+if (scannerInput) {
+  scannerInput.addEventListener("keydown", (e) => {
+    if (e.key === "Enter") {
+      alert("Código: " + e.target.value);
+      e.target.value = "";
+    }
+  });
+}
+
 
   console.log({
   startBtn: $("startBtn"),
