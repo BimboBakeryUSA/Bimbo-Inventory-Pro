@@ -1,6 +1,5 @@
 alert("APP.JS CARGADO ✅");
-setTimeout(() => alert("APP TERMINÓ"), 0);
-
+alert("LINEA 2");
 // ======================= 
 // GLOBAL ERROR HANDLER
 // =======================
@@ -24,7 +23,7 @@ const $ = (id) => {
   }
   return el;
 };
-
+alert("LINEA 3 VARIABLES");
 // =======================
 // VARIABLES
 // =======================
