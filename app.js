@@ -1,3 +1,4 @@
+alert("APP INICIANDO");
 const PRODUCT_DB_URL = "products.json";
 const DEFAULT_IMAGE = "default-product.svg";
 let products = [];
@@ -23,7 +24,7 @@ async function loadProducts(){
 }
 function defaultProducts(){
   return [
-    {"UPC":"757528008680","SKU":"1001","Producto":"Takis Fuego","UnidadesCaja":12,"Foto":""},
+    {"UPC":"1234","SKU":"1001","Producto":"Takis Fuego","UnidadesCaja":12,"Foto":""},
     {"UPC":"757528045609","SKU":"1002","Producto":"Takis Blue Heat","UnidadesCaja":12,"Foto":""},
     {"UPC":"757528046224","SKU":"1003","Producto":"Takis Intense Nacho","UnidadesCaja":12,"Foto":""},
     {"UPC":"757528044664","SKU":"1004","Producto":"Takis Nitro","UnidadesCaja":12,"Foto":""},
@@ -142,5 +143,18 @@ function setupEvents(){
 }
 if("serviceWorker" in navigator){ navigator.serviceWorker.register("sw.js").catch(() => {}); }
 alert('APP INICIANDO');
-(async function init(){ await loadProducts(); setupEvents();alert('EVENTOS REGISTRADOS');
- render(); setTimeout(() => $("scannerInput").focus(), 400); })();
+(async function init(){
+
+  alert("INIT 1");
+
+  await loadProducts();
+
+  alert("INIT 2");
+
+  setupEvents();
+
+  alert("INIT 3");
+
+  render();
+
+})(); render(); setTimeout(() => $("scannerInput").focus(), 400); })();
