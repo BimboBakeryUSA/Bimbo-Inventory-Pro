@@ -128,10 +128,8 @@ async function startCamera() {
   fps: 12,
   qrbox: { width: 250, height: 250 }
 },
-(decodedText) => {
-  alert("SCAN: " + decodedText);
-  console.log("✅ Scan:", decodedText);
-}
+(decodedText) => processBarcode(decodedText)
+
     );
 
     scanning = true;
