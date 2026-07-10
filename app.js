@@ -22,7 +22,7 @@ const $ = (id) => {
   }
   return el;
 };
-alert("LINEA 3 VARIABLES");
+//alert("LINEA 3 VARIABLES");
 // =======================
 // VARIABLES
 // =======================
