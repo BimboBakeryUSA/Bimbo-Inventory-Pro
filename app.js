@@ -112,7 +112,8 @@ function shareWhatsApp(){
 function downloadFile(filename, content, type){ const blob = new Blob([content], {type}); const a = document.createElement("a"); a.href = URL.createObjectURL(blob); a.download = filename; a.click(); URL.revokeObjectURL(a.href); }
 function parseCsvLine(line){ const result=[]; let current=""; let inQuotes=false; for(const ch of line){ if(ch==='"') inQuotes=!inQuotes; else if(ch==="," && !inQuotes){ result.push(current); current=""; } else current += ch; } result.push(current); return result.map(x => x.trim().replace(/^"|"$/g,"")); }
 async function importCSV(file){
-  const text = await file.text(); const lines = text.split(/?
+  const text = await file.text(); const lines = text.split(/
+?
 /).filter(Boolean); const headers = parseCsvLine(lines.shift()).map(h => h.trim().toLowerCase());
   const getIndex = names => names.map(n => headers.indexOf(n)).find(i => i >= 0);
   const upcI=getIndex(["upc","codigo","barcode"]), skuI=getIndex(["sku"]), prodI=getIndex(["producto","product","name"]), unitsI=getIndex(["unidadescaja","unitspercase","unidades por caja"]), fotoI=getIndex(["foto","photo","image"]);
@@ -124,7 +125,9 @@ function downloadTemplate(){ const csv="UPC,SKU,Producto,UnidadesCaja,Foto
 757528045609,1002,Takis Blue Heat,12,
 7432358480,8444,Rosca de Reyes,5,
 "; downloadFile("bimbo_products_template.csv", csv, "text/csv"); }
+
 function setupEvents(){
+
   $("routeInput").value = routeValue; $("routeInput").addEventListener("input", saveAll);
   $("startBtn").onclick = startCamera; $("stopBtn").onclick = stopCamera; $("exportBtn").onclick = exportCSV; $("whatsappBtn").onclick = shareWhatsApp;
   $("addProductBtn").onclick = () => openProductModal(lastCode); $("closeModalBtn").onclick = closeProductModal; $("saveProductBtn").onclick = upsertProductFromForm; $("useLastCodeBtn").onclick = () => { $("newUpc").value = lastCode || ""; };
@@ -138,4 +141,6 @@ function setupEvents(){
   $("installBtn").onclick = async () => { if(deferredPrompt){ deferredPrompt.prompt(); deferredPrompt=null; $("installBtn").classList.add("hidden"); } };
 }
 if("serviceWorker" in navigator){ navigator.serviceWorker.register("sw.js").catch(() => {}); }
-(async function init(){ await loadProducts(); setupEvents(); render(); setTimeout(() => $("scannerInput").focus(), 400); })();
+alert('APP INICIANDO');
+(async function init(){ await loadProducts(); setupEvents();alert('EVENTOS REGISTRADOS');
+ render(); setTimeout(() => $("scannerInput").focus(), 400); })();
