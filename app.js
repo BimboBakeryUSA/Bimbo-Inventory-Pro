@@ -143,8 +143,17 @@ async function startCamera() {
 // =======================
 
 function processBarcode(code) {
-  alert("SCAN PROCESADO: " + code);
+  if (!counts[code]) {
+    counts[code] = { code: code, cantidad: 0 };
+  }
+
+  counts[code].cantidad++;
+
+  console.log("✅ SUMADO:", code, counts[code].cantidad);
+
+  render();
 }
+
 function setupEvents() {
 
   const exportBtn = $("exportBtn");
