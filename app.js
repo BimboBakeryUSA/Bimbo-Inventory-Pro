@@ -1,4 +1,4 @@
-alert("APP.JS CARGADO ✅ y testeando");
+alert("APP.JS CARGADO ✅ SOLO");
 // ======================= 
 // GLOBAL ERROR HANDLER
 // ======================= 
