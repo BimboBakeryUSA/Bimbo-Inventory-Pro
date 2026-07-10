@@ -1,5 +1,4 @@
 alert("APP.JS CARGADO ✅ y testeando");
-alert("LINEA 2");
 // ======================= 
 // GLOBAL ERROR HANDLER
 // =======================
