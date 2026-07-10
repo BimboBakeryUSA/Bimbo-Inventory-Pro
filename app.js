@@ -1,4 +1,4 @@
-alert("APP.JS CARGADO ✅ SCAN PROCESADO");
+alert("APP.JS CARGADO ✅ SCAN V5");
 // ======================= 
 // GLOBAL ERROR HANDLER
 // ======================= 
