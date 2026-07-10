@@ -1,16 +1,12 @@
 alert("APP.JS CARGADO");
 
-(async function init(){
-
-  await loadProducts();
-
-  setupEvents();
-
-  alert("EVENTOS REGISTRADOS");
-
-  render();
-
-})();
+window.onerror = function(msg, src, line, col, err) {
+    alert(
+      "ERROR:\n" +
+      msg +
+      "\nLINEA: " + line
+    );
+};
 
 const PRODUCT_DB_URL = "products.json";
 const DEFAULT_IMAGE = "default-product.svg";
@@ -24,6 +20,7 @@ let lastScanTime = 0;
 let deferredPrompt = null;
 
 const $ = (id) => document.getElementById(id);
+alert("APP.JS EJECUTANDO");
 
 async function loadProducts(){
   const saved = localStorage.getItem("bip_products");
