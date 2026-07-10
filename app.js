@@ -1,7 +1,7 @@
 alert("APP.JS CARGADO ✅ y testeando");
 // ======================= 
 // GLOBAL ERROR HANDLER
-// =======================
+// ======================= 
 window.onerror = function (msg, src, line, col, err) {
   alert(
     "❌ ERROR DETECTADO:\n\n" +
