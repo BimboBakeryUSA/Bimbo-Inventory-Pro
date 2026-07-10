@@ -157,4 +157,8 @@ alert('APP INICIANDO');
 
   render();
 
-})(); render(); setTimeout(() => $("scannerInput").focus(), 400); })();
+  alert("INIT 4");
+
+})();
+                            
+                            render(); setTimeout(() => $("scannerInput").focus(), 400); })();
