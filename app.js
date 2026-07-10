@@ -1,4 +1,5 @@
 alert("APP.JS CARGADO ✅");
+setTimeout(() => alert("APP TERMINÓ"), 0);
 
 // =======================
 // GLOBAL ERROR HANDLER
