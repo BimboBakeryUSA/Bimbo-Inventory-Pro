@@ -141,7 +141,17 @@ async function startCamera() {
 // EVENTS
 // =======================
 function setupEvents() {
+
+  console.log({
+  startBtn: $("startBtn"),
+  stopBtn: $("stopBtn"),
+  exportBtn: $("exportBtn"),
+  scannerInput: $("scannerInput"),
+});
+
+  
   console.log("🔌 Configurando eventos...");
+  
 
   try {
     const startBtn = $("startBtn");
