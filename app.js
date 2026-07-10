@@ -1,4 +1,7 @@
-alert("APP INICIANDO");
+window.onerror = function(msg, url, line) {
+    alert("ERROR: " + msg + " LINEA: " + line);
+};
+
 const PRODUCT_DB_URL = "products.json";
 const DEFAULT_IMAGE = "default-product.svg";
 let products = [];
