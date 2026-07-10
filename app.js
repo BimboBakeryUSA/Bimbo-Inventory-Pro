@@ -1,6 +1,16 @@
-window.onerror = function(msg, url, line) {
-    alert("ERROR: " + msg + " LINEA: " + line);
-};
+alert("APP.JS CARGADO");
+
+(async function init(){
+
+  await loadProducts();
+
+  setupEvents();
+
+  alert("EVENTOS REGISTRADOS");
+
+  render();
+
+})();
 
 const PRODUCT_DB_URL = "products.json";
 const DEFAULT_IMAGE = "default-product.svg";
