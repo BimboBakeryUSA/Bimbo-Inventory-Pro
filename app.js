@@ -1,4 +1,4 @@
-alert("Bimbo Inventory Pro — v5: fix fullscreen real de cámara (!important) + botón detener ya no tapa totales ✅");
+alert("Bimbo Inventory Pro — v6: botón Detener centrado arriba + popup de escaneo visible sobre la cámara ✅");
 
 // =======================
 // GLOBAL ERROR HANDLER (silencioso, solo consola)
