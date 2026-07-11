@@ -1,4 +1,4 @@
-alert("Bimbo Inventory Pro — v6: botón Detener centrado arriba + popup de escaneo visible sobre la cámara ✅");
+alert("Bimbo Inventory Pro — v7: confirmación por doble lectura + validación checksum + pausa 0.5s tras aceptar ✅");
 
 // =======================
 // GLOBAL ERROR HANDLER (silencioso, solo consola)
@@ -29,8 +29,41 @@ let lastScanTime = 0;
 let deferredPrompt = null;
 
 // =======================
+// CONFIRMACIÓN DE LECTURA (solo cámara)
+// =======================
+const CONFIRM_HITS = 2;             // lecturas iguales seguidas para aceptar
+const CONFIRM_WINDOW_MS = 900;      // tiempo máximo entre esas lecturas
+const POST_ACCEPT_COOLDOWN_MS = 500; // pausa después de aceptar un código
+
+let pendingRaw = null;
+let pendingHits = 0;
+let pendingFirstTime = 0;
+let cameraCooldownUntil = 0;
+
+// =======================
 // DATA
 // =======================
+function digitsOnly(value) {
+  return String(value || "").replace(/\D/g, "");
+}
+
+// Valida el dígito verificador GS1 de UPC-A (12) / EAN-13 (13).
+// Para cualquier otro largo (SKU internos, QR cortos, etc.) no aplica y se deja pasar.
+function isPlausibleBarcode(rawDigits) {
+  let digits = rawDigits;
+  if (digits.length === 12) digits = "0" + digits; // UPC-A -> EAN-13
+  if (digits.length !== 13) return true;
+
+  const nums = digits.split("").map(Number);
+  const check = nums.pop();
+  let sum = 0;
+  nums.forEach((d, i) => {
+    sum += d * (i % 2 === 0 ? 1 : 3);
+  });
+  const calculated = (10 - (sum % 10)) % 10;
+  return calculated === check;
+}
+
 function normalize(value) {
   let code = String(value || "").replace(/\D/g, "");
 
@@ -270,6 +303,15 @@ function render() {
 // SCAN / CAMERA
 // =======================
 function processBarcode(rawCode) {
+  const rawDigits = digitsOnly(rawCode);
+  if (!rawDigits) return;
+
+  if (!isPlausibleBarcode(rawDigits)) {
+    console.warn("Código rechazado por checksum inválido:", rawDigits);
+    showScanToast("Código inválido, escanea de nuevo", rawDigits, false);
+    return;
+  }
+
   const code = normalize(rawCode);
   if (!code) return;
 
@@ -298,24 +340,61 @@ function processBarcode(rawCode) {
   const lastScanText = getEl("lastScanText");
   if (lastScanText) lastScanText.textContent = "Último: " + counts[key].Producto;
 
-  showScanToast(counts[key].Producto, counts[key].UPC);
+  showScanToast(counts[key].Producto, counts[key].UPC, true);
   beep();
   saveAll();
   render();
+}
+
+// Filtro exclusivo para la cámara: exige N lecturas iguales seguidas
+// antes de aceptar, y aplica una pausa después de aceptar una.
+function handleCameraDecode(rawText) {
+  const raw = digitsOnly(rawText);
+  if (!raw) return;
+
+  const now = Date.now();
+  if (now < cameraCooldownUntil) return; // pausa post-aceptación
+
+  if (!isPlausibleBarcode(raw)) {
+    // probablemente mal enfocado: no lo contamos ni como candidato
+    pendingRaw = null;
+    pendingHits = 0;
+    return;
+  }
+
+  if (raw === pendingRaw && now - pendingFirstTime <= CONFIRM_WINDOW_MS) {
+    pendingHits += 1;
+  } else {
+    pendingRaw = raw;
+    pendingHits = 1;
+    pendingFirstTime = now;
+  }
+
+  if (pendingHits < CONFIRM_HITS) return; // aún no coinciden suficientes lecturas
+
+  // confirmado: se acepta y se reinicia para el próximo código
+  pendingRaw = null;
+  pendingHits = 0;
+  cameraCooldownUntil = now + POST_ACCEPT_COOLDOWN_MS;
+
+  processBarcode(raw);
 }
 
 // =======================
 // POPUP DE ESCANEO
 // =======================
 let scanToastTimer = null;
-function showScanToast(name, code) {
+function showScanToast(name, code, ok = true) {
   const toast = getEl("scanToast");
   const nameEl = getEl("scanToastName");
   const codeEl = getEl("scanToastCode");
+  const iconEl = toast ? toast.querySelector(".scan-toast-icon") : null;
   if (!toast) return;
 
   if (nameEl) nameEl.textContent = name;
   if (codeEl) codeEl.textContent = "Código: " + code;
+  if (iconEl) iconEl.textContent = ok ? "✅" : "⚠️";
+  toast.classList.toggle("error", !ok);
 
   toast.classList.add("show");
   clearTimeout(scanToastTimer);
@@ -326,6 +405,10 @@ function showScanToast(name, code) {
 
 async function startCamera() {
   if (scanning) return;
+
+  pendingRaw = null;
+  pendingHits = 0;
+  cameraCooldownUntil = 0;
 
   if (typeof Html5Qrcode === "undefined") {
     alert("❌ Librería html5-qrcode NO cargó");
@@ -359,7 +442,7 @@ async function startCamera() {
         }
       },
       (decodedText) => {
-        processBarcode(decodedText);
+        handleCameraDecode(decodedText);
       },
       () => {}
     );

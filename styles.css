@@ -208,6 +208,7 @@ button{border:0;border-radius:14px;padding:13px 14px;font-size:14px;font-weight:
   transition:opacity .22s ease, transform .22s ease;
 }
 .scan-toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
+.scan-toast.error{border-left:4px solid var(--red)}
 .scan-toast-icon{font-size:20px}
 .scan-toast-text{display:flex;flex-direction:column;line-height:1.25}
 .scan-toast-text strong{font-size:14px}
