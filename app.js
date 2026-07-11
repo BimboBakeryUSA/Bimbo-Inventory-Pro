@@ -1,4 +1,4 @@
-alert("Bimbo Inventory Pro — v18: banner arreglado, conteos vacíos se descartan, editar producto solo Admin ✅");
+alert("Bimbo Inventory Pro — v19: panel Admin/Corporativo + catálogo + badge de pendientes ✅");
 
 // =======================
 // SUPABASE (login y roles)
@@ -697,6 +697,93 @@ function upsertProductFromForm() {
 
   closeProductModal();
   render();
+
+  // Si el catálogo está abierto, refleja el cambio ahí también.
+  const catalogModal = getEl("catalogModal");
+  if (catalogModal && !catalogModal.classList.contains("hidden")) {
+    renderCatalogList(getEl("catalogSearchInput")?.value || "");
+  }
+}
+
+// =======================
+// CATÁLOGO DE PRODUCTOS (pantalla propia, solo Admin)
+// =======================
+function openCatalogModal() {
+  getEl("catalogModal")?.classList.remove("hidden");
+  const search = getEl("catalogSearchInput");
+  if (search) search.value = "";
+  renderCatalogList("");
+}
+
+function closeCatalogModal() {
+  getEl("catalogModal")?.classList.add("hidden");
+}
+
+function renderCatalogList(filter = "") {
+  const list = getEl("catalogList");
+  if (!list) return;
+
+  const term = filter.trim().toLowerCase();
+  const filtered = !term
+    ? products
+    : products.filter(
+        (p) =>
+          (p.Producto || "").toLowerCase().includes(term) ||
+          (p.SKU || "").toLowerCase().includes(term) ||
+          (p.UPC || "").toLowerCase().includes(term)
+      );
+
+  if (!filtered.length) {
+    list.innerHTML = '<p class="help-text">Sin productos que coincidan.</p>';
+    return;
+  }
+
+  list.innerHTML = "";
+  filtered
+    .slice()
+    .sort((a, b) => (a.Producto || "").localeCompare(b.Producto || ""))
+    .forEach((p) => {
+      const row = document.createElement("div");
+      row.className = "catalog-row";
+
+      const photoSrc = p.Foto && p.Foto.trim() ? p.Foto.trim() : DEFAULT_IMAGE;
+
+      row.innerHTML =
+        '<div class="catalog-row-photo"><img src="' + photoSrc + '" alt=""></div>' +
+        '<div class="catalog-row-info">' +
+        "<strong>" + (p.Producto || "Sin nombre") + "</strong>" +
+        "<span>SKU " + (p.SKU || "N/A") + " · UPC " + p.UPC + "</span>" +
+        "</div>" +
+        '<div class="catalog-row-actions">' +
+        '<button class="catalog-edit-btn">Editar</button>' +
+        '<button class="catalog-delete-btn">🗑</button>' +
+        "</div>";
+
+      const img = row.querySelector(".catalog-row-photo img");
+      if (img) img.onerror = () => { img.src = DEFAULT_IMAGE; };
+
+      row.querySelector(".catalog-edit-btn").onclick = () => openProductModal(p.UPC);
+      row.querySelector(".catalog-delete-btn").onclick = () => deleteProductFromCatalog(p.UPC);
+
+      list.appendChild(row);
+    });
+}
+
+async function deleteProductFromCatalog(upc) {
+  if (!confirm("¿Eliminar este producto del catálogo? No se podrá deshacer.")) return;
+
+  products = products.filter((p) => normalize(p.UPC) !== normalize(upc));
+  saveProducts();
+
+  if (supabaseClient) {
+    const { error } = await supabaseClient.from("products").delete().eq("upc", upc);
+    if (error) {
+      console.error("Error borrando producto en Supabase:", error);
+      alert("⚠️ Se borró localmente, pero no se pudo borrar en Supabase: " + error.message);
+    }
+  }
+
+  renderCatalogList(getEl("catalogSearchInput")?.value || "");
 }
 
 // =======================
@@ -833,7 +920,10 @@ function downloadTemplate() {
 function openDrawer() {
   getEl("sideDrawer")?.classList.add("open");
   getEl("drawerOverlay")?.classList.remove("hidden");
-  if (currentProfile && currentProfile.role === "admin") loadPendingRoutes();
+  if (currentProfile && currentProfile.role === "admin") {
+    loadPendingRoutes();
+    refreshPendingBadge();
+  }
 }
 
 function closeDrawer() {
@@ -907,10 +997,39 @@ function setupEvents() {
   if (refreshHomeBtn) refreshHomeBtn.onclick = loadHomeSessions;
   if (newSessionBtn) newSessionBtn.onclick = promptNewSession;
   if (continueSessionBtn) continueSessionBtn.onclick = () => { if (currentSession) openSessionDetail(currentSession); };
-  if (backToHomeBtn) backToHomeBtn.onclick = showHomeView;
+  if (backToHomeBtn) backToHomeBtn.onclick = goBackFromSession;
   if (closeScanMethodBtn) closeScanMethodBtn.onclick = closeScanMethodModal;
   if (chooseCameraBtn) chooseCameraBtn.onclick = () => createNewSession("camara");
   if (choosePistolaBtn) choosePistolaBtn.onclick = () => createNewSession("pistola");
+
+  // Panel Admin/Corporativo
+  const goHistoryCardBtn = getEl("goHistoryCardBtn");
+  const goUsersCardBtn = getEl("goUsersCardBtn");
+  const goCatalogCardBtn = getEl("goCatalogCardBtn");
+  const goPendingCardBtn = getEl("goPendingCardBtn");
+  const goScanCardBtn = getEl("goScanCardBtn");
+
+  if (goHistoryCardBtn) goHistoryCardBtn.onclick = openHistoryModal;
+  if (goUsersCardBtn) goUsersCardBtn.onclick = openUserModal;
+  if (goCatalogCardBtn) goCatalogCardBtn.onclick = openCatalogModal;
+  if (goPendingCardBtn) goPendingCardBtn.onclick = openDrawer;
+  if (goScanCardBtn) {
+    goScanCardBtn.onclick = () => {
+      updateSessionChrome();
+      showSessionView();
+    };
+  }
+
+  // Catálogo de productos
+  const closeCatalogModalBtn = getEl("closeCatalogModalBtn");
+  const catalogSearchInput = getEl("catalogSearchInput");
+  const catalogAddBtn = getEl("catalogAddBtn");
+
+  if (closeCatalogModalBtn) closeCatalogModalBtn.onclick = closeCatalogModal;
+  if (catalogAddBtn) catalogAddBtn.onclick = () => openProductModal("");
+  if (catalogSearchInput) {
+    catalogSearchInput.addEventListener("input", (e) => renderCatalogList(e.target.value));
+  }
 
   if (clearBtn) {
     clearBtn.onclick = () => {
@@ -1148,6 +1267,11 @@ function applyRoleGating(profile) {
     el.classList.toggle("hidden", !canManageUsers);
   });
 
+  // Admin/Corporativo: panel propio en vez de aterrizar en el escáner.
+  document.querySelectorAll("[data-staff-only]").forEach((el) => {
+    el.classList.toggle("hidden", !canManageUsers);
+  });
+
   document.querySelectorAll("[data-route-only]").forEach((el) => {
     el.classList.toggle("hidden", profile.role !== "route");
   });
@@ -1208,12 +1332,12 @@ async function afterLogin(user) {
   await loadProducts();
 
   // Si es una ruta: pantalla "Mis conteos" (o retoma trabajo pendiente).
-  // Admin/Corporativo: van directo a su pantalla de escaneo, como antes.
+  // Admin/Corporativo: van a su Panel (Historial, Usuarios, Catálogo...).
   if (profile.role === "route") {
     await initSessionForRoute();
   } else {
     updateSessionChrome();
-    showSessionView();
+    showAdminHomeView();
     render();
   }
 }
@@ -1385,6 +1509,38 @@ async function handleCreateUser() {
 // =======================
 // APROBACIONES PENDIENTES (Admin)
 // =======================
+
+// Actualiza el contador visible (avatar del header + tarjeta del Panel) sin
+// que el Admin tenga que abrir el drawer para enterarse de que hay pendientes.
+async function refreshPendingBadge() {
+  const badges = document.querySelectorAll(".pending-badge");
+  if (!badges.length) return;
+
+  if (!supabaseClient || !currentProfile || currentProfile.role !== "admin") {
+    badges.forEach((el) => el.classList.add("hidden"));
+    return;
+  }
+
+  const { count, error } = await supabaseClient
+    .from("profiles")
+    .select("id", { count: "exact", head: true })
+    .eq("estado", "pendiente");
+
+  if (error) {
+    console.error("Error contando pendientes:", error);
+    return;
+  }
+
+  badges.forEach((el) => {
+    if (count && count > 0) {
+      el.textContent = String(count);
+      el.classList.remove("hidden");
+    } else {
+      el.classList.add("hidden");
+    }
+  });
+}
+
 async function loadPendingRoutes() {
   const list = getEl("pendingRoutesList");
   if (!list || !supabaseClient) return;
@@ -1449,6 +1605,7 @@ async function approvePendingRoute(userId) {
   }
 
   loadPendingRoutes();
+  refreshPendingBadge();
 }
 
 async function rejectPendingRoute(userId) {
@@ -1464,6 +1621,7 @@ async function rejectPendingRoute(userId) {
   }
 
   loadPendingRoutes();
+  refreshPendingBadge();
 }
 
 // =======================
@@ -1504,11 +1662,12 @@ function updateSessionChrome() {
   const isRoute = currentProfile && currentProfile.role === "route";
 
   if (!isRoute) {
-    // Admin/Corporativo: sin Home ni estados de solo lectura, igual que antes.
+    // Admin/Corporativo: sin estados de solo lectura (siguen sin sesiones),
+    // pero sí pueden volver a su Panel con el mismo botón de "atrás".
     getEl("scannerCard")?.classList.remove("hidden");
     getEl("clearBtn")?.classList.remove("hidden");
     getEl("closeListBtn")?.classList.add("hidden");
-    getEl("backToHomeBtn")?.classList.add("hidden");
+    getEl("backToHomeBtn")?.classList.remove("hidden");
     getEl("readOnlyBanner")?.classList.add("hidden");
     getEl("cameraMethodSection")?.classList.remove("hidden");
     getEl("manualMethodSection")?.classList.remove("hidden");
@@ -1534,14 +1693,37 @@ function showHomeView() {
   currentView = "home";
   if (scanning) stopCamera();
   getEl("homeView")?.classList.remove("hidden");
+  getEl("adminHomeView")?.classList.add("hidden");
   getEl("sessionView")?.classList.add("hidden");
   loadHomeSessions();
+}
+
+// Panel de aterrizaje para Admin/Corporativo (equivalente a "Mis conteos"
+// pero con accesos directos en vez de una lista de conteos).
+function showAdminHomeView() {
+  currentView = "adminHome";
+  if (scanning) stopCamera();
+  getEl("adminHomeView")?.classList.remove("hidden");
+  getEl("homeView")?.classList.add("hidden");
+  getEl("sessionView")?.classList.add("hidden");
+  refreshPendingBadge();
 }
 
 function showSessionView() {
   currentView = "session";
   getEl("homeView")?.classList.add("hidden");
+  getEl("adminHomeView")?.classList.add("hidden");
   getEl("sessionView")?.classList.remove("hidden");
+}
+
+// El botón "← atrás" de la pantalla de escaneo lleva a Home o al Panel
+// según el rol de quien lo esté viendo.
+function goBackFromSession() {
+  if (currentProfile && currentProfile.role === "route") {
+    showHomeView();
+  } else {
+    showAdminHomeView();
+  }
 }
 
 // Pinta la pantalla "Mis conteos": la lista abierta (si hay) como banner
@@ -1990,6 +2172,30 @@ async function loadHistory() {
 
   const filter = getEl("historyRouteFilter")?.value.trim();
 
+  // Corporativo solo ve el historial de las rutas que él mismo dio de alta
+  // (no las de todo el sistema, esas quedan reservadas para Admin).
+  let allowedRouteCodes = null;
+  if (currentProfile && currentProfile.role === "corporativo") {
+    const { data: ownRoutes, error: ownError } = await supabaseClient
+      .from("profiles")
+      .select("route_code")
+      .eq("creado_por", currentUser.id)
+      .eq("role", "route");
+
+    if (ownError) {
+      list.innerHTML = '<p class="help-text">Error cargando tus rutas: ' + ownError.message + '</p>';
+      console.error(ownError);
+      return;
+    }
+
+    allowedRouteCodes = (ownRoutes || []).map((r) => r.route_code).filter(Boolean);
+
+    if (allowedRouteCodes.length === 0) {
+      list.innerHTML = '<p class="help-text">Todavía no has creado ninguna ruta.</p>';
+      return;
+    }
+  }
+
   let data, error;
   try {
     let query = supabaseClient
@@ -1997,6 +2203,7 @@ async function loadHistory() {
       .select("*")
       .order("abierta_en", { ascending: false });
 
+    if (allowedRouteCodes) query = query.in("route_code", allowedRouteCodes);
     if (filter) query = query.eq("route_code", filter);
 
     ({ data, error } = await query);

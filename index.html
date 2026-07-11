@@ -6,7 +6,7 @@
   <title>Bimbo Inventory Pro</title>
   <meta name="theme-color" content="#ffffff" />
   <link rel="manifest" href="manifest.json" />
-  <link rel="stylesheet" href="styles.css?v=18" />
+  <link rel="stylesheet" href="styles.css?v=19" />
 </head>
 <body>
 
@@ -57,6 +57,7 @@
 
     <button id="profileBtn" class="avatar-btn" aria-label="Perfil de usuario">
       <span class="avatar-circle">U</span>
+      <span class="pending-badge corner hidden">0</span>
     </button>
   </header>
 
@@ -127,6 +128,45 @@
 
   <!-- ===================== CONTENIDO PRINCIPAL ===================== -->
   <main class="app-shell">
+
+    <!-- ============ PANEL (solo Admin/Corporativo) ============ -->
+    <section id="adminHomeView" class="admin-home-view hidden" data-staff-only>
+      <div class="section-title-row">
+        <h2>Panel</h2>
+      </div>
+
+      <div class="admin-cards-grid">
+        <button id="goHistoryCardBtn" class="admin-card" data-history-only>
+          <span class="admin-card-icon">📋</span>
+          <span class="admin-card-title">Historial de rutas</span>
+          <span class="admin-card-sub">Ver y consultar conteos por ruta</span>
+        </button>
+
+        <button id="goUsersCardBtn" class="admin-card" data-usermgmt-only>
+          <span class="admin-card-icon">👥</span>
+          <span class="admin-card-title">Usuarios</span>
+          <span class="admin-card-sub">Crear cuentas nuevas</span>
+        </button>
+
+        <button id="goCatalogCardBtn" class="admin-card" data-admin-only>
+          <span class="admin-card-icon">📦</span>
+          <span class="admin-card-title">Catálogo de productos</span>
+          <span class="admin-card-sub">Buscar, editar y borrar productos</span>
+        </button>
+
+        <button id="goPendingCardBtn" class="admin-card" data-admin-only>
+          <span class="admin-card-icon">🔔</span>
+          <span class="admin-card-title">Aprobaciones pendientes</span>
+          <span class="admin-card-sub"><span class="pending-badge hidden" id="pendingCardBadge">0</span> por aprobar</span>
+        </button>
+
+        <button id="goScanCardBtn" class="admin-card">
+          <span class="admin-card-icon">📷</span>
+          <span class="admin-card-title">Escanear</span>
+          <span class="admin-card-sub">Conteo manual / prueba</span>
+        </button>
+      </div>
+    </section>
 
     <!-- ============ HOME: "Mis conteos" (solo Route) ============ -->
     <section id="homeView" class="home-view hidden" data-route-only>
@@ -292,6 +332,24 @@
     </div>
   </div>
 
+  <div id="catalogModal" class="modal hidden" role="dialog" aria-modal="true">
+    <div class="modal-card">
+      <div class="modal-head">
+        <h2>Catálogo de productos</h2>
+        <button id="closeCatalogModalBtn" class="close-btn">×</button>
+      </div>
+
+      <div class="button-row">
+        <input id="catalogSearchInput" type="text" placeholder="Buscar por nombre, SKU o UPC" />
+        <button id="catalogAddBtn" class="yellow-btn">+ Nuevo</button>
+      </div>
+
+      <div id="catalogList" class="catalog-list">
+        <p class="help-text">Cargando...</p>
+      </div>
+    </div>
+  </div>
+
   <div id="scanMethodModal" class="modal hidden" role="dialog" aria-modal="true">
     <div class="modal-card">
       <div class="modal-head">
@@ -349,6 +407,6 @@
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
 <script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
-<script src="app.js?v=18"></script>
+<script src="app.js?v=19"></script>
 </body>
 </html>
