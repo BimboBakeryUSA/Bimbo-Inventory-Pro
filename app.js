@@ -40,9 +40,14 @@ let deferredPrompt = null;
 function normalize(value) {
   let code = String(value || "").replace(/\D/g, "");
 
-  // 🔧 normalizar códigos largos (EAN13 → quitar primer dígito)
+  // convertir EAN13 a UPC12
   if (code.length === 13) {
     code = code.slice(1);
+  }
+
+  // 🔥 clave: usar solo los primeros 10-11 dígitos (evita errores al final)
+  if (code.length >= 11) {
+    code = code.slice(0, 11);
   }
 
   return code;
