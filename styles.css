@@ -137,13 +137,14 @@ body.camera-fullscreen{overflow:hidden!important}
 
 .floating-stop{
   position:fixed!important;
-  top:18px!important;left:50%!important;right:auto!important;
+  bottom:28px!important;top:auto!important;left:50%!important;right:auto!important;
   transform:translateX(-50%)!important;
   z-index:210!important;
   width:auto;min-width:120px;height:46px;padding:0 22px;
   border-radius:999px;font-size:15px;
   display:flex;align-items:center;justify-content:center;
-  background:rgba(17,24,39,.75);color:#fff;flex:none;
+  background:var(--red)!important;color:#fff;flex:none;
+  box-shadow:0 6px 18px rgba(0,0,0,.35);
 }
 .floating-pill{
   position:fixed!important;top:26px;left:18px;z-index:210!important;

@@ -1,4 +1,4 @@
-alert("Bimbo Inventory Pro — v20: Escanear (Admin/Corporativo) también pregunta cámara o pistola ✅");
+alert("Bimbo Inventory Pro — v21: botón Detener rojo y abajo ✅");
 
 // =======================
 // SUPABASE (login y roles)
