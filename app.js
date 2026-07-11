@@ -1,4 +1,4 @@
-alert("APP.JS CARGADO ✅ V6");
+alert("APP.JS CARGADO ✅ Supabase");
 
 // =======================
 // GLOBAL ERROR HANDLER
@@ -703,6 +703,57 @@ function setupEvents() {
   }
 }
 
+
+//++++++++++++++++++++++
+const SUPABASE_URL = "URL https://obfikwhukpzelsghowcq.supabase.co/";
+const SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im9iZmlrd2h1a3B6ZWxzZ2hvd2NxIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODM3MjU3NzMsImV4cCI6MjA5OTMwMTc3M30.sKfI_riLcFZA9GyGM6ugW3ELrNb-kLxGNVE53Dv4G70";
+
+const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+//++++++++++++++++++++++
+async function login(email, password) {
+  const { data, error } = await supabase.auth.signInWithPassword({
+    email,
+    password
+  });
+
+  if (error) {
+    alert("Error login: " + error.message);
+    return null;
+  }
+
+  return data.user;
+}
+//++++++++++++++++++++++
+async function getProfile(userId) {
+  const { data, error } = await supabase
+    .from("profiles")
+    .select("*")
+    .eq("id", userId)
+    .single();
+
+  if (error) {
+    console.error(error);
+    return null;
+  }
+
+  return data;
+}
+//+++++++++++++++++++++++
+async function doLogin() {
+  const email = prompt("Email:");
+  const password = prompt("Password:");
+
+  const user = await login(email, password);
+  if (!user) return;
+
+  const profile = await getProfile(user.id);
+
+  console.log("USER:", user);
+  console.log("PROFILE:", profile);
+
+  alert("Bienvenido " + profile.name + " (" + profile.role + ")");
+}
+//++++++++++++++++++++++++
 // =======================
 // INIT
 // =======================
