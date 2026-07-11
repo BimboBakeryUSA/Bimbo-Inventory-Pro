@@ -1,4 +1,4 @@
-alert("Bimbo Inventory Pro — v16: cerrar lista funciona offline (se encola y cierra sola) ✅");
+alert("Bimbo Inventory Pro — v17: pantalla 'Mis conteos' + elegir cámara/pistola al crear lista ✅");
 
 // =======================
 // SUPABASE (login y roles)
@@ -26,6 +26,12 @@ let currentSession = null; // fila de scan_sessions: la "lista" abierta de esta 
 let syncPending = localStorage.getItem("bip_sync_pending") === "1"; // ¿hay cambios sin subir a Supabase?
 let syncInProgress = false;
 let closePending = localStorage.getItem("bip_close_pending") === "1"; // ¿hay que cerrar la lista en cuanto haya red?
+
+// Navegación Home ("Mis conteos") <-> detalle de lista, solo para role "route".
+let currentView = "home";     // "home" | "session"
+let viewingSessionId = null;  // id de la scan_session que se está mostrando en #sessionView
+let viewingReadOnly = false;  // true si la lista que se muestra ya está cerrada
+let viewingMetodo = null;     // "camara" | "pistola" — método guardado en la lista que se ve
 
 // =======================
 // GLOBAL ERROR HANDLER (silencioso, solo consola)
@@ -339,33 +345,53 @@ function render() {
           photoWrap.appendChild(img);
         }
 
+        // Si se está viendo una lista ya cerrada (solo lectura), no se puede
+        // editar el conteo: se ocultan los controles de +/-, borrar y editar.
+        const readOnly = currentProfile && currentProfile.role === "route" && viewingReadOnly;
+
         if (plusBtn) {
-          plusBtn.onclick = () => {
-            item.Cajas += 1;
-            saveAll();
-            render();
-          };
+          if (readOnly) {
+            plusBtn.classList.add("hidden");
+          } else {
+            plusBtn.onclick = () => {
+              item.Cajas += 1;
+              saveAll();
+              render();
+            };
+          }
         }
 
         if (minusBtn) {
-          minusBtn.onclick = () => {
-            item.Cajas = Math.max(0, item.Cajas - 1);
-            if (item.Cajas === 0) delete counts[normalize(item.UPC)];
-            saveAll();
-            render();
-          };
+          if (readOnly) {
+            minusBtn.classList.add("hidden");
+          } else {
+            minusBtn.onclick = () => {
+              item.Cajas = Math.max(0, item.Cajas - 1);
+              if (item.Cajas === 0) delete counts[normalize(item.UPC)];
+              saveAll();
+              render();
+            };
+          }
         }
 
         if (deleteBtn) {
-          deleteBtn.onclick = () => {
-            delete counts[normalize(item.UPC)];
-            saveAll();
-            render();
-          };
+          if (readOnly) {
+            deleteBtn.classList.add("hidden");
+          } else {
+            deleteBtn.onclick = () => {
+              delete counts[normalize(item.UPC)];
+              saveAll();
+              render();
+            };
+          }
         }
 
         if (editBtn) {
-          editBtn.onclick = () => openProductModal(item.UPC);
+          if (readOnly) {
+            editBtn.classList.add("hidden");
+          } else {
+            editBtn.onclick = () => openProductModal(item.UPC);
+          }
         }
 
         list.appendChild(node);
@@ -385,6 +411,8 @@ function render() {
 // SCAN / CAMERA
 // =======================
 function processBarcode(rawCode) {
+  if (currentProfile && currentProfile.role === "route" && viewingReadOnly) return;
+
   const rawDigits = digitsOnly(rawCode);
   if (!rawDigits) return;
 
@@ -487,6 +515,7 @@ function showScanToast(name, code, ok = true) {
 
 async function startCamera() {
   if (scanning) return;
+  if (currentProfile && currentProfile.role === "route" && viewingReadOnly) return;
 
   pendingRaw = null;
   pendingHits = 0;
@@ -862,6 +891,23 @@ function setupEvents() {
   const closeListBtn = getEl("closeListBtn");
   if (closeListBtn) closeListBtn.onclick = closeCurrentList;
 
+  // Home "Mis conteos" / navegación de listas
+  const refreshHomeBtn = getEl("refreshHomeBtn");
+  const newSessionBtn = getEl("newSessionBtn");
+  const continueSessionBtn = getEl("continueSessionBtn");
+  const backToHomeBtn = getEl("backToHomeBtn");
+  const closeScanMethodBtn = getEl("closeScanMethodBtn");
+  const chooseCameraBtn = getEl("chooseCameraBtn");
+  const choosePistolaBtn = getEl("choosePistolaBtn");
+
+  if (refreshHomeBtn) refreshHomeBtn.onclick = loadHomeSessions;
+  if (newSessionBtn) newSessionBtn.onclick = promptNewSession;
+  if (continueSessionBtn) continueSessionBtn.onclick = () => { if (currentSession) openSessionDetail(currentSession); };
+  if (backToHomeBtn) backToHomeBtn.onclick = showHomeView;
+  if (closeScanMethodBtn) closeScanMethodBtn.onclick = closeScanMethodModal;
+  if (chooseCameraBtn) chooseCameraBtn.onclick = () => createNewSession("camara");
+  if (choosePistolaBtn) choosePistolaBtn.onclick = () => createNewSession("pistola");
+
   if (clearBtn) {
     clearBtn.onclick = () => {
       if (confirm("¿Limpiar el conteo actual?")) {
@@ -1157,10 +1203,13 @@ async function afterLogin(user) {
   // Ahora que hay sesión, refrescamos el catálogo compartido desde Supabase.
   await loadProducts();
 
-  // Si es una ruta, retomamos su lista abierta (o creamos una nueva).
+  // Si es una ruta: pantalla "Mis conteos" (o retoma trabajo pendiente).
+  // Admin/Corporativo: van directo a su pantalla de escaneo, como antes.
   if (profile.role === "route") {
     await initSessionForRoute();
   } else {
+    updateSessionChrome();
+    showSessionView();
     render();
   }
 }
@@ -1416,37 +1465,208 @@ async function rejectPendingRoute(userId) {
 // =======================
 // LISTAS DE ESCANEO (scan_sessions) — solo para role "route"
 // =======================
-async function findOrCreateOpenSession() {
+
+// Solo busca la lista abierta de la ruta (no crea ninguna). Crear una lista
+// nueva ahora es una acción explícita del driver desde "Mis conteos".
+async function findOpenSession() {
   if (!supabaseClient || !currentUser || !currentProfile) return null;
   if (currentProfile.role !== "route" || !currentProfile.route_code) return null;
 
-  const routeCode = currentProfile.route_code;
-
   try {
-    const { data: existing, error: findError } = await supabaseClient
+    const { data, error } = await supabaseClient
       .from("scan_sessions")
       .select("*")
-      .eq("route_code", routeCode)
+      .eq("route_code", currentProfile.route_code)
       .eq("estado", "abierta")
       .order("abierta_en", { ascending: false })
       .limit(1)
       .maybeSingle();
 
-    if (findError) throw findError;
-    if (existing) return existing;
-
-    const { data: created, error: createError } = await supabaseClient
-      .from("scan_sessions")
-      .insert({ route_code: routeCode, user_id: currentUser.id })
-      .select()
-      .single();
-
-    if (createError) throw createError;
-    return created;
+    if (error) throw error;
+    return data || null;
   } catch (e) {
-    console.error("Error obteniendo/creando lista de escaneo:", e);
+    console.error("Error buscando lista abierta:", e);
     return null;
   }
+}
+
+// =======================
+// NAVEGACIÓN: HOME ("Mis conteos") <-> DETALLE DE LISTA — solo role "route"
+// =======================
+
+// Ajusta qué partes de la pantalla de detalle se ven según el rol y si la
+// lista que se muestra está abierta (editable) o cerrada (solo lectura).
+function updateSessionChrome() {
+  const isRoute = currentProfile && currentProfile.role === "route";
+
+  if (!isRoute) {
+    // Admin/Corporativo: sin Home ni estados de solo lectura, igual que antes.
+    getEl("scannerCard")?.classList.remove("hidden");
+    getEl("clearBtn")?.classList.remove("hidden");
+    getEl("closeListBtn")?.classList.add("hidden");
+    getEl("backToHomeBtn")?.classList.add("hidden");
+    getEl("readOnlyBanner")?.classList.add("hidden");
+    getEl("cameraMethodSection")?.classList.remove("hidden");
+    getEl("manualMethodSection")?.classList.remove("hidden");
+    return;
+  }
+
+  const editable = !viewingReadOnly;
+  getEl("scannerCard")?.classList.toggle("hidden", !editable);
+  getEl("clearBtn")?.classList.toggle("hidden", !editable);
+  getEl("closeListBtn")?.classList.toggle("hidden", !editable);
+  getEl("backToHomeBtn")?.classList.remove("hidden");
+  getEl("readOnlyBanner")?.classList.toggle("hidden", editable);
+  getEl("syncStatusPill")?.classList.toggle("hidden", !editable);
+
+  if (editable) {
+    const usesCamera = viewingMetodo !== "pistola";
+    getEl("cameraMethodSection")?.classList.toggle("hidden", !usesCamera);
+    getEl("manualMethodSection")?.classList.toggle("hidden", usesCamera);
+  }
+}
+
+function showHomeView() {
+  currentView = "home";
+  if (scanning) stopCamera();
+  getEl("homeView")?.classList.remove("hidden");
+  getEl("sessionView")?.classList.add("hidden");
+  loadHomeSessions();
+}
+
+function showSessionView() {
+  currentView = "session";
+  getEl("homeView")?.classList.add("hidden");
+  getEl("sessionView")?.classList.remove("hidden");
+}
+
+// Pinta la pantalla "Mis conteos": la lista abierta (si hay) como banner
+// arriba, y el historial de listas cerradas de esta ruta debajo.
+async function loadHomeSessions() {
+  const list = getEl("sessionsList");
+  const newBtn = getEl("newSessionBtn");
+  const banner = getEl("openSessionBanner");
+  if (!list || !supabaseClient || !currentProfile) return;
+
+  list.innerHTML = '<p class="help-text">Cargando...</p>';
+
+  const { data, error } = await supabaseClient
+    .from("scan_sessions")
+    .select("*")
+    .eq("route_code", currentProfile.route_code)
+    .order("abierta_en", { ascending: false });
+
+  if (error) {
+    list.innerHTML = '<p class="help-text">Error cargando tus conteos: ' + error.message + '</p>';
+    console.error(error);
+    return;
+  }
+
+  const sessions = data || [];
+  const open = sessions.find((s) => s.estado === "abierta") || null;
+  currentSession = open;
+
+  if (open) {
+    if (banner) {
+      banner.classList.remove("hidden");
+      const info = getEl("openSessionInfo");
+      if (info) info.textContent = "Desde " + (open.abierta_en ? new Date(open.abierta_en).toLocaleString() : "");
+    }
+    if (newBtn) newBtn.classList.add("hidden");
+  } else {
+    if (banner) banner.classList.add("hidden");
+    if (newBtn) newBtn.classList.remove("hidden");
+  }
+
+  const closedSessions = sessions.filter((s) => s.estado !== "abierta");
+
+  if (closedSessions.length === 0) {
+    list.innerHTML = '<p class="help-text">Todavía no tienes conteos cerrados.</p>';
+    return;
+  }
+
+  list.innerHTML = "";
+  closedSessions.forEach((session) => {
+    const row = document.createElement("div");
+    row.className = "session-row";
+    const fecha = session.abierta_en ? new Date(session.abierta_en).toLocaleString() : "";
+    row.innerHTML =
+      '<div class="session-row-info">' +
+      "<strong>Conteo del " + fecha + "</strong>" +
+      '<span class="history-status cerrada">Cerrada</span>' +
+      "</div>" +
+      '<span class="session-row-arrow">›</span>';
+
+    row.onclick = () => openSessionDetail(session);
+    list.appendChild(row);
+  });
+}
+
+// Abre el detalle de una lista (propia): si sigue abierta, queda editable
+// (cámara/pistola, +/-, limpiar, cerrar); si ya está cerrada, solo lectura.
+async function openSessionDetail(session) {
+  viewingSessionId = session.id;
+  viewingReadOnly = session.estado !== "abierta";
+  viewingMetodo = session.metodo || "camara";
+
+  if (!viewingReadOnly) {
+    currentSession = session;
+    if (syncPending || closePending) {
+      // Hay cambios de este dispositivo sin subir todavía: usamos lo que ya
+      // está guardado localmente en vez de pisarlo con lo último que llegó
+      // a subirse al servidor.
+      counts = JSON.parse(localStorage.getItem("bip_counts") || "{}");
+    } else {
+      await loadSessionItemsIntoCounts(session.id);
+    }
+  } else {
+    await loadSessionItemsIntoCounts(session.id);
+  }
+
+  updateSessionChrome();
+  render();
+  showSessionView();
+
+  if (!viewingReadOnly && navigator.onLine) {
+    if (closePending) await tryCloseWhenOnline();
+    else if (syncPending) syncCurrentSessionItems();
+  }
+}
+
+function promptNewSession() {
+  getEl("scanMethodModal")?.classList.remove("hidden");
+}
+
+function closeScanMethodModal() {
+  getEl("scanMethodModal")?.classList.add("hidden");
+}
+
+// Crea una lista nueva con el método elegido (cámara o pistola) y entra
+// directo a su pantalla de escaneo.
+async function createNewSession(metodo) {
+  closeScanMethodModal();
+
+  if (!supabaseClient || !currentUser || !currentProfile) return;
+
+  if (!navigator.onLine) {
+    alert("📴 Necesitas conexión para iniciar un conteo nuevo. Tu lista actual (si tienes una) sigue funcionando sin conexión.");
+    return;
+  }
+
+  const { data, error } = await supabaseClient
+    .from("scan_sessions")
+    .insert({ route_code: currentProfile.route_code, user_id: currentUser.id, metodo })
+    .select()
+    .single();
+
+  if (error) {
+    alert("❌ No se pudo crear el conteo: " + error.message);
+    return;
+  }
+
+  counts = {};
+  saveAllLocalOnly();
+  await openSessionDetail(data);
 }
 
 async function loadSessionItemsIntoCounts(sessionId) {
@@ -1507,9 +1727,12 @@ function updateSyncIndicator() {
     pill.className = "sync-pill ok";
   }
 
-  // Respetamos el gating de rol: solo se ve si el profile actual es "route".
-  if (currentProfile && currentProfile.role === "route") {
+  // Solo se ve si el profile actual es "route" y se está viendo la lista
+  // abierta (no tiene sentido mostrar estado de sync en una lista cerrada).
+  if (currentProfile && currentProfile.role === "route" && !viewingReadOnly) {
     pill.classList.remove("hidden");
+  } else if (currentProfile && currentProfile.role === "route") {
+    pill.classList.add("hidden");
   }
 }
 
@@ -1580,26 +1803,40 @@ async function syncCurrentSessionItems() {
   }
 }
 
+// Se llama justo después del login de una ruta. Si hay trabajo sin
+// sincronizar (scans sin subir, o un cierre en cola), retoma directo la
+// pantalla de esa lista para no perderla de vista. Si no, muestra
+// "Mis conteos" como pantalla de inicio.
 async function initSessionForRoute() {
   if (!currentProfile || currentProfile.role !== "route") return;
 
-  currentSession = await findOrCreateOpenSession();
-  updateSyncIndicator();
+  if (syncPending || closePending) {
+    const openSession = await findOpenSession();
 
-  if (currentSession) {
-    await loadSessionItemsIntoCounts(currentSession.id);
-    render();
+    if (openSession) {
+      viewingSessionId = openSession.id;
+      viewingReadOnly = false;
+      viewingMetodo = openSession.metodo || "camara";
+      currentSession = openSession;
+      // counts ya vienen de localStorage (bip_counts): no los pisamos.
+      updateSessionChrome();
+      render();
+      showSessionView();
 
-    // Si quedaron cambios pendientes de una sesión anterior sin conexión,
-    // intentamos subirlos ahora que la app ya está lista.
-    if (navigator.onLine) {
-      if (closePending) {
-        await tryCloseWhenOnline();
-      } else if (syncPending) {
-        syncCurrentSessionItems();
+      if (navigator.onLine) {
+        if (closePending) await tryCloseWhenOnline();
+        else if (syncPending) syncCurrentSessionItems();
       }
+      return;
     }
+
+    // Había un cierre/sync pendiente pero ya no existe una lista abierta
+    // (por ejemplo, se cerró desde otro dispositivo): limpiamos las banderas.
+    if (closePending) markClosePending(false);
+    if (syncPending) markSyncPending(false);
   }
+
+  showHomeView();
 }
 
 function markClosePending(pending) {
@@ -1629,11 +1866,17 @@ async function performCloseSession() {
 
   markClosePending(false);
 
-  // Abrimos una lista nueva y limpiamos la pantalla para seguir escaneando.
+  if (scanning) await stopCamera();
+
+  currentSession = null;
+  viewingSessionId = null;
+  viewingReadOnly = false;
   counts = {};
   saveAllLocalOnly();
-  render();
-  await initSessionForRoute();
+
+  // Ya no se abre una lista nueva automáticamente: el driver vuelve a
+  // "Mis conteos" y decide ahí cuándo empezar un conteo nuevo.
+  showHomeView();
   return true;
 }
 
@@ -1648,7 +1891,7 @@ async function tryCloseWhenOnline() {
   }
 
   const ok = await performCloseSession();
-  if (ok) alert("✅ Ya volvió la conexión: la lista se cerró y se abrió una nueva.");
+  if (ok) alert("✅ Ya volvió la conexión: la lista se cerró.");
 }
 
 async function closeCurrentList() {
@@ -1673,7 +1916,7 @@ async function closeCurrentList() {
 
   const ok = await performCloseSession();
   if (ok) {
-    alert("✅ Lista cerrada. Se abrió una lista nueva para seguir escaneando.");
+    alert("✅ Lista cerrada.");
   } else {
     alert("❌ No se pudo cerrar la lista. Intenta de nuevo.");
   }

@@ -6,7 +6,7 @@
   <title>Bimbo Inventory Pro</title>
   <meta name="theme-color" content="#ffffff" />
   <link rel="manifest" href="manifest.json" />
-  <link rel="stylesheet" href="styles.css?v=16" />
+  <link rel="stylesheet" href="styles.css?v=17" />
 </head>
 <body>
 
@@ -128,55 +128,88 @@
   <!-- ===================== CONTENIDO PRINCIPAL ===================== -->
   <main class="app-shell">
 
-    <section class="totals-bar">
-      <div class="total-box"><strong id="totalSku">0</strong><span>SKU</span></div>
-      <div class="total-box"><strong id="totalCases">0</strong><span>Cajas</span></div>
-      <div class="total-box"><strong id="totalUnits">0</strong><span>Unidades</span></div>
-    </section>
-
-    <span id="syncStatusPill" class="sync-pill ok hidden" data-route-only>✅ Sincronizado</span>
-
-    <section class="scanner-card">
+    <!-- ============ HOME: "Mis conteos" (solo Route) ============ -->
+    <section id="homeView" class="home-view hidden" data-route-only>
       <div class="section-title-row">
-        <h2>Escáner continuo</h2>
-        <span id="statusPill" class="status-pill off">Inactivo</span>
+        <h2>Mis conteos</h2>
+        <button id="refreshHomeBtn" class="icon-btn" aria-label="Actualizar">🔄</button>
       </div>
 
-      <div id="reader" class="reader-box">
-        <div class="reader-placeholder">
-          <img src="default-product.svg" alt="Bimbo default" class="placeholder-img">
-          <p>Presiona Cámara para iniciar.<br>Con NETUM Bluetooth solo escanea.</p>
+      <button id="newSessionBtn" class="primary-btn full-width hidden">+ Nuevo conteo</button>
+
+      <div id="openSessionBanner" class="open-session-banner hidden">
+        <div class="open-session-banner-text">
+          <strong>🟢 Conteo en curso</strong>
+          <span id="openSessionInfo"></span>
         </div>
+        <button id="continueSessionBtn" class="dark-btn">Continuar</button>
       </div>
 
-      <div class="button-row">
-        <button id="startBtn" class="primary-btn">📷 Cámara</button>
-        <button id="stopBtn" class="dark-btn">Detener</button>
+      <div id="sessionsList" class="sessions-list">
+        <p class="help-text">Cargando...</p>
       </div>
-
-      <label for="scannerInput" class="manual-label">Scanner Bluetooth / Manual</label>
-      <input id="scannerInput" type="text" autocomplete="off" inputmode="numeric" placeholder="Escanea UPC/SKU aquí" />
-      <p class="help-text">NETUM C740 funciona como teclado. Cuando termina el scan presiona Enter automáticamente.</p>
     </section>
 
-    <section class="actions-card">
-      <div class="button-grid">
-        <button id="addProductBtn" class="yellow-btn" data-admin-only>+ Agregar producto</button>
-        <button id="exportBtn" class="blue-btn">Exportar CSV</button>
-        <button id="whatsappBtn" class="green-btn">WhatsApp</button>
-        <button id="clearBtn" class="red-light-btn">Limpiar conteo</button>
-      </div>
-      <button id="closeListBtn" class="dark-btn full-width hidden" data-route-only>🔒 Cerrar lista</button>
-    </section>
+    <!-- ============ DETALLE DE LISTA (escaneando o solo lectura) ============ -->
+    <div id="sessionView" class="hidden">
 
-    <section class="list-title-row">
-      <h2>Productos escaneados</h2>
-      <span id="lastScanText">Sin scans</span>
-    </section>
+      <button id="backToHomeBtn" class="dark-btn back-btn hidden">← Mis conteos</button>
 
-    <section id="productList" class="product-list">
-      <div class="empty-state">Todavía no hay productos escaneados.</div>
-    </section>
+      <p id="readOnlyBanner" class="readonly-banner hidden">🔒 Esta lista está cerrada. Solo lectura.</p>
+
+      <section class="totals-bar">
+        <div class="total-box"><strong id="totalSku">0</strong><span>SKU</span></div>
+        <div class="total-box"><strong id="totalCases">0</strong><span>Cajas</span></div>
+        <div class="total-box"><strong id="totalUnits">0</strong><span>Unidades</span></div>
+      </section>
+
+      <span id="syncStatusPill" class="sync-pill ok hidden">✅ Sincronizado</span>
+
+      <section id="scannerCard" class="scanner-card">
+        <div class="section-title-row">
+          <h2>Escáner continuo</h2>
+          <span id="statusPill" class="status-pill off">Inactivo</span>
+        </div>
+
+        <div id="cameraMethodSection">
+          <div id="reader" class="reader-box">
+            <div class="reader-placeholder">
+              <img src="default-product.svg" alt="Bimbo default" class="placeholder-img">
+              <p>Presiona Cámara para iniciar.</p>
+            </div>
+          </div>
+          <div class="button-row">
+            <button id="startBtn" class="primary-btn">📷 Cámara</button>
+            <button id="stopBtn" class="dark-btn">Detener</button>
+          </div>
+        </div>
+
+        <div id="manualMethodSection">
+          <label for="scannerInput" class="manual-label">Scanner Bluetooth</label>
+          <input id="scannerInput" type="text" autocomplete="off" inputmode="numeric" placeholder="Escanea UPC/SKU aquí" />
+          <p class="help-text">NETUM C740 funciona como teclado. Cuando termina el scan presiona Enter automáticamente.</p>
+        </div>
+      </section>
+
+      <section class="actions-card">
+        <div class="button-grid">
+          <button id="addProductBtn" class="yellow-btn" data-admin-only>+ Agregar producto</button>
+          <button id="exportBtn" class="blue-btn">Exportar CSV</button>
+          <button id="whatsappBtn" class="green-btn">WhatsApp</button>
+          <button id="clearBtn" class="red-light-btn">Limpiar conteo</button>
+        </div>
+        <button id="closeListBtn" class="dark-btn full-width hidden">🔒 Cerrar lista</button>
+      </section>
+
+      <section class="list-title-row">
+        <h2>Productos escaneados</h2>
+        <span id="lastScanText">Sin scans</span>
+      </section>
+
+      <section id="productList" class="product-list">
+        <div class="empty-state">Todavía no hay productos escaneados.</div>
+      </section>
+    </div>
   </main>
 
   <div id="productModal" class="modal hidden" role="dialog" aria-modal="true">
@@ -259,6 +292,20 @@
     </div>
   </div>
 
+  <div id="scanMethodModal" class="modal hidden" role="dialog" aria-modal="true">
+    <div class="modal-card">
+      <div class="modal-head">
+        <h2>¿Cómo vas a escanear?</h2>
+        <button id="closeScanMethodBtn" class="close-btn">×</button>
+      </div>
+      <p class="help-text">Esto se pregunta solo una vez al crear la lista. Después queda guardado.</p>
+      <div class="button-row" style="flex-direction:column">
+        <button id="chooseCameraBtn" class="primary-btn full-width">📷 Cámara del teléfono</button>
+        <button id="choosePistolaBtn" class="dark-btn full-width">🔫 Pistola Bluetooth</button>
+      </div>
+    </div>
+  </div>
+
   <div id="historyModal" class="modal hidden" role="dialog" aria-modal="true">
     <div class="modal-card">
       <div class="modal-head">
@@ -302,6 +349,6 @@
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
 <script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
-<script src="app.js?v=16"></script>
+<script src="app.js?v=17"></script>
 </body>
 </html>
