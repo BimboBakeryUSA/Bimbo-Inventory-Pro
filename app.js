@@ -1,4 +1,3 @@
-alert("APP.JS CARGADO ✅ V7 CC");
 // =======================
 // GLOBAL ERROR HANDLER (silencioso, solo consola)
 // =======================
@@ -297,9 +296,30 @@ function processBarcode(rawCode) {
   const lastScanText = getEl("lastScanText");
   if (lastScanText) lastScanText.textContent = "Último: " + counts[key].Producto;
 
+  showScanToast(counts[key].Producto, counts[key].UPC);
   beep();
   saveAll();
   render();
+}
+
+// =======================
+// POPUP DE ESCANEO
+// =======================
+let scanToastTimer = null;
+function showScanToast(name, code) {
+  const toast = getEl("scanToast");
+  const nameEl = getEl("scanToastName");
+  const codeEl = getEl("scanToastCode");
+  if (!toast) return;
+
+  if (nameEl) nameEl.textContent = name;
+  if (codeEl) codeEl.textContent = "Código: " + code;
+
+  toast.classList.add("show");
+  clearTimeout(scanToastTimer);
+  scanToastTimer = setTimeout(() => {
+    toast.classList.remove("show");
+  }, 1600);
 }
 
 async function startCamera() {
@@ -323,7 +343,11 @@ async function startCamera() {
       { facingMode: "environment" },
       {
         fps: 12,
-        qrbox: { width: 250, height: 250 }
+        qrbox: (viewfinderWidth, viewfinderHeight) => {
+          const minEdge = Math.min(viewfinderWidth, viewfinderHeight);
+          const size = Math.floor(minEdge * 0.7);
+          return { width: size, height: size };
+        }
       },
       (decodedText) => {
         processBarcode(decodedText);
@@ -332,16 +356,28 @@ async function startCamera() {
     );
 
     scanning = true;
+    setCameraFullscreen(true);
 
     const statusPill = getEl("statusPill");
     if (statusPill) {
       statusPill.textContent = "Activo";
-      statusPill.className = "status-pill on";
+      statusPill.className = "status-pill on floating-pill";
     }
   } catch (err) {
     console.error(err);
     alert("❌ Error cámara: " + err);
   }
+}
+
+function setCameraFullscreen(on) {
+  const reader = getEl("reader");
+  const startBtn = getEl("startBtn");
+  const stopBtn = getEl("stopBtn");
+
+  if (reader) reader.classList.toggle("fullscreen", on);
+  document.body.classList.toggle("camera-fullscreen", on);
+  if (startBtn) startBtn.classList.toggle("hidden", on);
+  if (stopBtn) stopBtn.classList.toggle("floating-stop", on);
 }
 
 async function stopCamera() {
@@ -355,6 +391,7 @@ async function stopCamera() {
   }
 
   scanning = false;
+  setCameraFullscreen(false);
 
   const statusPill = getEl("statusPill");
   if (statusPill) {

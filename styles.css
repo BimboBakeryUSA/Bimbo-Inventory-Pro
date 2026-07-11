@@ -116,6 +116,27 @@ input:focus{border-color:var(--red);box-shadow:0 0 0 3px rgba(226,0,26,.12)}
 .reader-placeholder{text-align:center;color:var(--gray);padding:24px}
 .placeholder-img{width:88px;height:88px;margin-bottom:10px;opacity:.85}
 
+/* Cámara a pantalla completa mientras escanea */
+.reader-box.fullscreen{
+  position:fixed;inset:0;z-index:45;
+  border-radius:0;border:0;min-height:100vh;background:#000;
+}
+.reader-box.fullscreen video{
+  width:100%;height:100%;object-fit:cover;border-radius:0;
+}
+.reader-box.fullscreen .reader-placeholder{display:none}
+body.camera-fullscreen{overflow:hidden}
+
+.floating-stop{
+  position:fixed!important;top:18px;right:18px;z-index:47;
+  width:50px;height:50px;border-radius:999px;padding:0;font-size:20px;
+  display:flex;align-items:center;justify-content:center;
+  background:rgba(17,24,39,.65);color:#fff;flex:none;
+}
+.floating-pill{
+  position:fixed!important;top:26px;left:18px;z-index:47;
+}
+
 .button-row,.button-grid{display:flex;gap:10px;margin-top:12px}
 .button-grid{display:grid;grid-template-columns:1fr 1fr 1fr 1fr}
 
@@ -163,6 +184,22 @@ button{border:0;border-radius:14px;padding:13px 14px;font-size:14px;font-weight:
 .preview-row{display:flex;align-items:center;gap:12px;background:var(--light-gray);border-radius:16px;padding:10px;margin-top:12px}
 .preview-row img{width:66px;height:66px;object-fit:contain;border-radius:12px;background:#fff}
 .preview-row span{font-size:13px;color:var(--gray)}
+
+/* Popup de confirmación de escaneo */
+.scan-toast{
+  position:fixed;top:20px;left:50%;
+  transform:translateX(-50%) translateY(-16px);
+  z-index:90;background:#fff;color:var(--dark);
+  border-radius:16px;box-shadow:0 12px 30px rgba(0,0,0,.28);
+  padding:12px 16px;display:flex;align-items:center;gap:10px;
+  min-width:220px;max-width:88vw;opacity:0;pointer-events:none;
+  transition:opacity .22s ease, transform .22s ease;
+}
+.scan-toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
+.scan-toast-icon{font-size:20px}
+.scan-toast-text{display:flex;flex-direction:column;line-height:1.25}
+.scan-toast-text strong{font-size:14px}
+.scan-toast-text span{font-size:12px;color:var(--gray)}
 
 @media(max-width:700px){
   .button-grid{grid-template-columns:1fr 1fr}
