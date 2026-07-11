@@ -1,4 +1,4 @@
-alert("Bimbo Inventory Pro — v19: panel Admin/Corporativo + catálogo + badge de pendientes ✅");
+alert("Bimbo Inventory Pro — v20: Escanear (Admin/Corporativo) también pregunta cámara o pistola ✅");
 
 // =======================
 // SUPABASE (login y roles)
@@ -999,8 +999,18 @@ function setupEvents() {
   if (continueSessionBtn) continueSessionBtn.onclick = () => { if (currentSession) openSessionDetail(currentSession); };
   if (backToHomeBtn) backToHomeBtn.onclick = goBackFromSession;
   if (closeScanMethodBtn) closeScanMethodBtn.onclick = closeScanMethodModal;
-  if (chooseCameraBtn) chooseCameraBtn.onclick = () => createNewSession("camara");
-  if (choosePistolaBtn) choosePistolaBtn.onclick = () => createNewSession("pistola");
+  if (chooseCameraBtn) {
+    chooseCameraBtn.onclick = () => {
+      if (scanMethodModalMode === "admin") selectAdminScanMethod("camara");
+      else createNewSession("camara");
+    };
+  }
+  if (choosePistolaBtn) {
+    choosePistolaBtn.onclick = () => {
+      if (scanMethodModalMode === "admin") selectAdminScanMethod("pistola");
+      else createNewSession("pistola");
+    };
+  }
 
   // Panel Admin/Corporativo
   const goHistoryCardBtn = getEl("goHistoryCardBtn");
@@ -1013,12 +1023,7 @@ function setupEvents() {
   if (goUsersCardBtn) goUsersCardBtn.onclick = openUserModal;
   if (goCatalogCardBtn) goCatalogCardBtn.onclick = openCatalogModal;
   if (goPendingCardBtn) goPendingCardBtn.onclick = openDrawer;
-  if (goScanCardBtn) {
-    goScanCardBtn.onclick = () => {
-      updateSessionChrome();
-      showSessionView();
-    };
-  }
+  if (goScanCardBtn) goScanCardBtn.onclick = promptScanMethodForAdmin;
 
   // Catálogo de productos
   const closeCatalogModalBtn = getEl("closeCatalogModalBtn");
@@ -1663,14 +1668,16 @@ function updateSessionChrome() {
 
   if (!isRoute) {
     // Admin/Corporativo: sin estados de solo lectura (siguen sin sesiones),
-    // pero sí pueden volver a su Panel con el mismo botón de "atrás".
+    // pero sí eligen cámara o pistola igual que una ruta, y pueden volver
+    // a su Panel con el mismo botón de "atrás".
+    const usesCameraAdmin = viewingMetodo !== "pistola";
     getEl("scannerCard")?.classList.remove("hidden");
     getEl("clearBtn")?.classList.remove("hidden");
     getEl("closeListBtn")?.classList.add("hidden");
     getEl("backToHomeBtn")?.classList.remove("hidden");
     getEl("readOnlyBanner")?.classList.add("hidden");
-    getEl("cameraMethodSection")?.classList.remove("hidden");
-    getEl("manualMethodSection")?.classList.remove("hidden");
+    getEl("cameraMethodSection")?.classList.toggle("hidden", !usesCameraAdmin);
+    getEl("manualMethodSection")?.classList.toggle("hidden", usesCameraAdmin);
     return;
   }
 
@@ -1819,8 +1826,30 @@ async function openSessionDetail(session) {
   }
 }
 
+// El modal de "¿cámara o pistola?" se reutiliza en dos flujos distintos:
+// "route" (crear una lista nueva) y "admin" (entrar a escanear desde el
+// Panel, sin lista de por medio). Este flag decide qué hacen los botones.
+let scanMethodModalMode = "route";
+
 function promptNewSession() {
+  scanMethodModalMode = "route";
   getEl("scanMethodModal")?.classList.remove("hidden");
+}
+
+// Admin/Corporativo: al entrar a "Escanear" desde el Panel, se pregunta
+// cámara o pistola igual que a una ruta, pero sin crear ninguna lista.
+function promptScanMethodForAdmin() {
+  scanMethodModalMode = "admin";
+  getEl("scanMethodModal")?.classList.remove("hidden");
+}
+
+function selectAdminScanMethod(metodo) {
+  closeScanMethodModal();
+  viewingMetodo = metodo;
+  viewingReadOnly = false;
+  updateSessionChrome();
+  showSessionView();
+  render();
 }
 
 function closeScanMethodModal() {
