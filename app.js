@@ -1,4 +1,4 @@
-alert("Bimbo Inventory Pro — v13: listas de escaneo por ruta (retomar/cerrar) ✅");
+alert("Bimbo Inventory Pro — v14: historial de rutas (Admin/Corporativo) ✅");
 
 // =======================
 // SUPABASE (login y roles)
@@ -967,6 +967,21 @@ function setupEvents() {
   const refreshPendingBtn = getEl("refreshPendingBtn");
   if (refreshPendingBtn) refreshPendingBtn.onclick = loadPendingRoutes;
 
+  // Historial de rutas
+  const openHistoryBtn = getEl("openHistoryBtn");
+  const closeHistoryModalBtn = getEl("closeHistoryModalBtn");
+  const refreshHistoryBtn = getEl("refreshHistoryBtn");
+  const historyRouteFilter = getEl("historyRouteFilter");
+
+  if (openHistoryBtn) openHistoryBtn.onclick = openHistoryModal;
+  if (closeHistoryModalBtn) closeHistoryModalBtn.onclick = closeHistoryModal;
+  if (refreshHistoryBtn) refreshHistoryBtn.onclick = loadHistory;
+  if (historyRouteFilter) {
+    historyRouteFilter.addEventListener("keydown", (e) => {
+      if (e.key === "Enter") loadHistory();
+    });
+  }
+
   // Login
   const loginSubmitBtn = getEl("loginSubmitBtn");
   const loginPassword = getEl("loginPassword");
@@ -1058,6 +1073,10 @@ function applyRoleGating(profile) {
 
   const canManageUsers = isAdmin || profile.role === "corporativo";
   document.querySelectorAll("[data-usermgmt-only]").forEach((el) => {
+    el.classList.toggle("hidden", !canManageUsers);
+  });
+
+  document.querySelectorAll("[data-history-only]").forEach((el) => {
     el.classList.toggle("hidden", !canManageUsers);
   });
 
@@ -1504,6 +1523,157 @@ async function closeCurrentList() {
 // un ciclo al vaciar counts justo antes de abrir la lista nueva).
 function saveAllLocalOnly() {
   localStorage.setItem("bip_counts", JSON.stringify(counts));
+}
+
+// =======================
+// HISTORIAL DE RUTAS (Admin / Corporativo)
+// =======================
+function openHistoryModal() {
+  getEl("historyModal")?.classList.remove("hidden");
+  loadHistory();
+}
+
+function closeHistoryModal() {
+  getEl("historyModal")?.classList.add("hidden");
+}
+
+async function loadHistory() {
+  const list = getEl("historyList");
+  if (!list || !supabaseClient) return;
+
+  list.innerHTML = '<p class="help-text">Cargando...</p>';
+
+  const filter = getEl("historyRouteFilter")?.value.trim();
+
+  let data, error;
+  try {
+    let query = supabaseClient
+      .from("scan_sessions")
+      .select("*")
+      .order("abierta_en", { ascending: false });
+
+    if (filter) query = query.eq("route_code", filter);
+
+    ({ data, error } = await query);
+  } catch (e) {
+    error = e;
+  }
+
+  if (error) {
+    list.innerHTML = '<p class="help-text">Error cargando historial: ' + (error.message || error) + '</p>';
+    console.error(error);
+    return;
+  }
+
+  if (!data || data.length === 0) {
+    list.innerHTML = '<p class="help-text">No hay listas todavía.</p>';
+    return;
+  }
+
+  list.innerHTML = "";
+  data.forEach((session) => {
+    const card = document.createElement("div");
+    card.className = "history-item";
+
+    const fecha = session.abierta_en ? new Date(session.abierta_en).toLocaleString() : "";
+    const estadoLabel = session.estado === "abierta" ? "Abierta" : "Cerrada";
+
+    card.innerHTML = `
+      <div class="history-item-head">
+        <div>
+          <strong>Ruta ${session.route_code || "N/A"}</strong>
+          <div><span>${fecha}</span></div>
+        </div>
+        <span class="history-status ${session.estado}">${estadoLabel}</span>
+      </div>
+      <div class="history-item-detail"></div>
+    `;
+
+    const head = card.querySelector(".history-item-head");
+    const detail = card.querySelector(".history-item-detail");
+
+    head.onclick = async () => {
+      if (detail.classList.contains("open")) {
+        detail.classList.remove("open");
+        return;
+      }
+      detail.classList.add("open");
+      await renderSessionDetail(detail, session);
+    };
+
+    list.appendChild(card);
+  });
+}
+
+async function renderSessionDetail(container, session) {
+  container.innerHTML = '<p class="help-text">Cargando detalle...</p>';
+
+  const { data, error } = await supabaseClient
+    .from("scan_session_items")
+    .select("*")
+    .eq("session_id", session.id);
+
+  if (error) {
+    container.innerHTML = '<p class="help-text">Error cargando items.</p>';
+    console.error(error);
+    return;
+  }
+
+  const items = data || [];
+  let totalCases = 0;
+  let totalUnits = 0;
+
+  let rowsHtml = items
+    .map((item) => {
+      totalCases += Number(item.cajas) || 0;
+      totalUnits += (Number(item.cajas) || 0) * (Number(item.unidades_caja) || 1);
+      return (
+        '<div class="history-detail-row"><span>' +
+        (item.producto || item.upc) +
+        '</span><span>' +
+        item.cajas +
+        ' cajas</span></div>'
+      );
+    })
+    .join("");
+
+  if (!rowsHtml) rowsHtml = '<p class="help-text">Sin productos escaneados.</p>';
+
+  const closeBtnHtml =
+    session.estado === "abierta"
+      ? '<button class="history-force-close-btn">Forzar cierre</button>'
+      : "";
+
+  container.innerHTML =
+    '<div class="history-detail-row"><strong>Total cajas</strong><strong>' + totalCases + '</strong></div>' +
+    '<div class="history-detail-row"><strong>Total unidades</strong><strong>' + totalUnits + '</strong></div>' +
+    rowsHtml +
+    closeBtnHtml;
+
+  const forceBtn = container.querySelector(".history-force-close-btn");
+  if (forceBtn) {
+    forceBtn.onclick = async (e) => {
+      e.stopPropagation();
+      if (!confirm("¿Forzar el cierre de esta lista?")) return;
+
+      const { error: closeError } = await supabaseClient
+        .from("scan_sessions")
+        .update({
+          estado: "cerrada",
+          cerrada_en: new Date().toISOString(),
+          cerrada_por: currentUser?.id || null
+        })
+        .eq("id", session.id);
+
+      if (closeError) {
+        alert("❌ No se pudo forzar el cierre: " + closeError.message);
+        return;
+      }
+
+      alert("✅ Lista cerrada.");
+      loadHistory();
+    };
+  }
 }
 
 // =======================

@@ -6,7 +6,7 @@
   <title>Bimbo Inventory Pro</title>
   <meta name="theme-color" content="#ffffff" />
   <link rel="manifest" href="manifest.json" />
-  <link rel="stylesheet" href="styles.css?v=13" />
+  <link rel="stylesheet" href="styles.css?v=14" />
 </head>
 <body>
 
@@ -112,6 +112,12 @@
       <div id="pendingRoutesList">
         <p class="help-text">Cargando...</p>
       </div>
+    </section>
+
+    <section class="drawer-section" data-history-only>
+      <h3>Historial de rutas</h3>
+      <p class="help-text">Ver y consultar las listas (abiertas y cerradas) de todas las rutas.</p>
+      <button id="openHistoryBtn" class="yellow-btn full-width">📋 Ver historial</button>
     </section>
 
     <section class="drawer-section drawer-footer">
@@ -251,6 +257,24 @@
     </div>
   </div>
 
+  <div id="historyModal" class="modal hidden" role="dialog" aria-modal="true">
+    <div class="modal-card">
+      <div class="modal-head">
+        <h2>Historial de rutas</h2>
+        <button id="closeHistoryModalBtn" class="close-btn">×</button>
+      </div>
+
+      <div class="button-row">
+        <input id="historyRouteFilter" type="text" inputmode="numeric" placeholder="Filtrar por ruta (opcional)" />
+        <button id="refreshHistoryBtn" class="dark-btn">🔄</button>
+      </div>
+
+      <div id="historyList" class="history-list">
+        <p class="help-text">Cargando...</p>
+      </div>
+    </div>
+  </div>
+
   <template id="productCardTemplate">
     <article class="product-card">
       <div class="product-photo"></div>
@@ -276,6 +300,6 @@
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
 <script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
-<script src="app.js?v=13"></script>
+<script src="app.js?v=14"></script>
 </body>
 </html>
