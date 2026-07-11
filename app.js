@@ -1,4 +1,4 @@
-alert("Bimbo Inventory Pro — v21: botón Detener rojo y abajo ✅");
+alert("Bimbo Inventory Pro — v22: en Admin, botones al final y productos escaneados arriba ✅");
 
 // =======================
 // SUPABASE (login y roles)
@@ -1666,6 +1666,10 @@ async function findOpenSession() {
 function updateSessionChrome() {
   const isRoute = currentProfile && currentProfile.role === "route";
 
+  const sessionView = getEl("sessionView");
+  const actionsCard = sessionView ? sessionView.querySelector(".actions-card") : null;
+  const scannerCardEl = getEl("scannerCard");
+
   if (!isRoute) {
     // Admin/Corporativo: sin estados de solo lectura (siguen sin sesiones),
     // pero sí eligen cámara o pistola igual que una ruta, y pueden volver
@@ -1678,7 +1682,17 @@ function updateSessionChrome() {
     getEl("readOnlyBanner")?.classList.add("hidden");
     getEl("cameraMethodSection")?.classList.toggle("hidden", !usesCameraAdmin);
     getEl("manualMethodSection")?.classList.toggle("hidden", usesCameraAdmin);
+
+    // Para Admin/Corporativo: los botones (Agregar/Exportar/WhatsApp/Limpiar)
+    // van al final, y "Productos escaneados" queda justo debajo del escáner.
+    if (sessionView && actionsCard) sessionView.appendChild(actionsCard);
     return;
+  }
+
+  // Route: aseguramos el orden original (botones justo después del escáner),
+  // por si esta misma pantalla ya se había reordenado para Admin/Corporativo.
+  if (sessionView && actionsCard && scannerCardEl && scannerCardEl.nextElementSibling !== actionsCard) {
+    scannerCardEl.after(actionsCard);
   }
 
   const editable = !viewingReadOnly;
