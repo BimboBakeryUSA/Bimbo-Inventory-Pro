@@ -1,4 +1,4 @@
-alert("Bimbo Inventory Pro — v11: aprobación de rutas pendientes desde la app (Admin) ✅");
+alert("Bimbo Inventory Pro — v12: catálogo de productos compartido vía Supabase ✅");
 
 // =======================
 // SUPABASE (login y roles)
@@ -113,13 +113,67 @@ function defaultProducts() {
   ];
 }
 
+// Convierte una fila de la tabla Supabase "products" al formato interno de la app
+function dbRowToProduct(row) {
+  return {
+    UPC: row.upc,
+    SKU: row.sku || "N/A",
+    Producto: row.producto || "",
+    UnidadesCaja: Number(row.unidades_caja) || 1,
+    Foto: row.foto || ""
+  };
+}
+
+// Convierte un producto interno al formato de fila para Supabase
+function productToDbRow(p) {
+  return {
+    upc: p.UPC,
+    sku: p.SKU || "N/A",
+    producto: p.Producto || "",
+    unidades_caja: Number(p.UnidadesCaja) || 1,
+    foto: p.Foto || "",
+    creado_por: currentUser ? currentUser.id : null
+  };
+}
+
+// Sube (upsert) una lista de productos a la tabla compartida en Supabase.
+// Silencioso si no hay sesión o Supabase no está configurado (no bloquea al usuario).
+async function syncProductsToSupabase(list) {
+  if (!supabaseClient || !currentUser || !list || !list.length) return;
+  try {
+    const rows = list.map(productToDbRow).filter((r) => r.upc);
+    if (!rows.length) return;
+    const { error } = await supabaseClient.from("products").upsert(rows, { onConflict: "upc" });
+    if (error) console.error("Error sincronizando productos con Supabase:", error);
+  } catch (e) {
+    console.error("Error sincronizando productos con Supabase:", e);
+  }
+}
+
 async function loadProducts() {
+  // 1) Si hay sesión de Supabase, el catálogo compartido manda.
+  if (supabaseClient && currentUser) {
+    try {
+      const { data, error } = await supabaseClient.from("products").select("*");
+      if (error) throw error;
+      if (data && data.length > 0) {
+        products = data.map(dbRowToProduct);
+        saveProducts(); // deja copia local como caché/respaldo offline
+        return;
+      }
+    } catch (e) {
+      console.warn("No se pudo cargar products desde Supabase, uso respaldo local:", e);
+    }
+  }
+
+  // 2) Respaldo: lo que ya hubiera guardado en este navegador.
   const saved = localStorage.getItem("bip_products");
   if (saved) {
     products = JSON.parse(saved);
     return;
   }
 
+  // 3) Último respaldo: products.json del repo, o datos demo.
   try {
     const res = await fetch(PRODUCT_DB_URL);
     if (!res.ok) throw new Error("No se pudo cargar products.json");
@@ -593,6 +647,7 @@ function upsertProductFromForm() {
   else products.push(record);
 
   saveProducts();
+  syncProductsToSupabase([record]);
 
   if (counts[upc]) {
     counts[upc].SKU = record.SKU;
@@ -718,7 +773,10 @@ async function importCSV(file) {
 
   products = imported;
   saveProducts();
-  alert("✅ Base cargada: " + products.length + " productos");
+  alert("✅ Base cargada: " + products.length + " productos. Sincronizando con Supabase...");
+  syncProductsToSupabase(products).then(() => {
+    console.log("Productos sincronizados con Supabase");
+  });
 }
 
 function downloadTemplate() {
@@ -813,6 +871,7 @@ function setupEvents() {
       if (confirm("¿Restaurar base de productos demo?")) {
         products = defaultProducts();
         saveProducts();
+        syncProductsToSupabase(products);
         alert("✅ Base demo restaurada");
       }
     };
@@ -1048,6 +1107,10 @@ async function afterLogin(user) {
   showApp();
   applyRoleGating(profile);
   if (profile.role === "admin") loadPendingRoutes();
+
+  // Ahora que hay sesión, refrescamos el catálogo compartido desde Supabase.
+  await loadProducts();
+  render();
 }
 
 async function handleLogin() {
@@ -1224,14 +1287,19 @@ async function loadPendingRoutes() {
 
   list.innerHTML = '<p class="help-text">Cargando...</p>';
 
-  const { data, error } = await supabaseClient
-    .from("profiles")
-    .select("id, nombre, route_code, created_at")
-    .eq("estado", "pendiente")
-    .order("created_at", { ascending: true });
+  let data, error;
+  try {
+    ({ data, error } = await supabaseClient
+      .from("profiles")
+      .select("id, nombre, route_code, created_at")
+      .eq("estado", "pendiente")
+      .order("created_at", { ascending: true }));
+  } catch (e) {
+    error = e;
+  }
 
   if (error) {
-    list.innerHTML = '<p class="help-text">Error cargando pendientes.</p>';
+    list.innerHTML = '<p class="help-text">Error cargando pendientes: ' + (error.message || error) + '</p>';
     console.error(error);
     return;
   }
