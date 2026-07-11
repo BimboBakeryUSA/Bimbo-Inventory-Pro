@@ -98,6 +98,12 @@
       </div>
     </section>
 
+    <section class="drawer-section" data-usermgmt-only>
+      <h3>Usuarios</h3>
+      <p class="help-text">Admin puede crear Admin, Corporativo o Route. Corporativo solo puede crear Route (queda pendiente de aprobación).</p>
+      <button id="addUserBtn" class="yellow-btn full-width">+ Agregar usuario</button>
+    </section>
+
     <section class="drawer-section drawer-footer">
       <span class="help-text">Bimbo Inventory Pro v3</span>
     </section>
@@ -185,6 +191,51 @@
       <div class="button-row">
         <button id="saveProductBtn" class="primary-btn">Guardar producto</button>
         <button id="useLastCodeBtn" class="dark-btn">Usar último código</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="userModal" class="modal hidden" role="dialog" aria-modal="true">
+    <div class="modal-card">
+      <div class="modal-head">
+        <h2>Agregar usuario</h2>
+        <button id="closeUserModalBtn" class="close-btn">×</button>
+      </div>
+
+      <label for="newUserNombre">Nombre</label>
+      <input id="newUserNombre" type="text" placeholder="Nombre completo" />
+
+      <label for="newUserEmail">Correo</label>
+      <input id="newUserEmail" type="email" placeholder="correo@ejemplo.com" />
+
+      <label for="newUserPassword">Contraseña temporal</label>
+      <input id="newUserPassword" type="text" placeholder="Mínimo 6 caracteres" />
+
+      <label for="newUserRole">Rol</label>
+      <select id="newUserRole">
+        <option value="route">Route</option>
+        <option value="corporativo">Corporativo (MSL/ZSL/OSL)</option>
+        <option value="admin">Admin</option>
+      </select>
+
+      <div id="newUserRouteWrap">
+        <label for="newUserRouteCode">Número de ruta</label>
+        <input id="newUserRouteCode" type="text" inputmode="numeric" placeholder="Ejemplo: 2306" />
+      </div>
+
+      <div id="newUserPuestoWrap" class="hidden">
+        <label for="newUserPuesto">Puesto</label>
+        <select id="newUserPuesto">
+          <option value="MSL">MSL</option>
+          <option value="ZSL">ZSL</option>
+          <option value="OSL">OSL</option>
+        </select>
+      </div>
+
+      <p id="userModalError" class="login-error hidden"></p>
+
+      <div class="button-row">
+        <button id="saveUserBtn" class="primary-btn">Crear usuario</button>
       </div>
     </div>
   </div>

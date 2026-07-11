@@ -1,4 +1,4 @@
-alert("Bimbo Inventory Pro — v9.3: login muestra el error real de Supabase para diagnosticar ✅");
+alert("Bimbo Inventory Pro — v10: panel de Usuarios (Admin/Corporativo) conectado a Edge Function ✅");
 
 // =======================
 // SUPABASE (login y roles)
@@ -888,6 +888,17 @@ function setupEvents() {
     };
   }
 
+  // Panel de usuarios
+  const addUserBtn = getEl("addUserBtn");
+  const closeUserModalBtn = getEl("closeUserModalBtn");
+  const saveUserBtn = getEl("saveUserBtn");
+  const newUserRole = getEl("newUserRole");
+
+  if (addUserBtn) addUserBtn.onclick = openUserModal;
+  if (closeUserModalBtn) closeUserModalBtn.onclick = closeUserModal;
+  if (saveUserBtn) saveUserBtn.onclick = handleCreateUser;
+  if (newUserRole) newUserRole.addEventListener("change", updateUserRoleFields);
+
   // Login
   const loginSubmitBtn = getEl("loginSubmitBtn");
   const loginPassword = getEl("loginPassword");
@@ -975,6 +986,11 @@ function applyRoleGating(profile) {
 
   document.querySelectorAll("[data-admin-only]").forEach((el) => {
     el.classList.toggle("hidden", !isAdmin);
+  });
+
+  const canManageUsers = isAdmin || profile.role === "corporativo";
+  document.querySelectorAll("[data-usermgmt-only]").forEach((el) => {
+    el.classList.toggle("hidden", !canManageUsers);
   });
 
   const routeInput = getEl("routeInput");
@@ -1085,6 +1101,110 @@ async function checkExistingSession() {
     await afterLogin(data.session.user);
   } else {
     showLogin();
+  }
+}
+
+// =======================
+// PANEL DE USUARIOS (Admin / Corporativo)
+// =======================
+function updateUserRoleFields() {
+  const role = getEl("newUserRole")?.value;
+  const routeWrap = getEl("newUserRouteWrap");
+  const puestoWrap = getEl("newUserPuestoWrap");
+
+  if (routeWrap) routeWrap.classList.toggle("hidden", role !== "route");
+  if (puestoWrap) puestoWrap.classList.toggle("hidden", role !== "corporativo");
+}
+
+function openUserModal() {
+  const nombre = getEl("newUserNombre");
+  const email = getEl("newUserEmail");
+  const password = getEl("newUserPassword");
+  const routeCode = getEl("newUserRouteCode");
+  const roleSelect = getEl("newUserRole");
+  const errEl = getEl("userModalError");
+  const modal = getEl("userModal");
+
+  if (nombre) nombre.value = "";
+  if (email) email.value = "";
+  if (password) password.value = "";
+  if (routeCode) routeCode.value = "";
+  if (errEl) errEl.classList.add("hidden");
+
+  if (roleSelect) {
+    roleSelect.value = "route";
+    // Corporativo solo puede crear rutas: bloqueamos el selector en "route".
+    roleSelect.disabled = currentProfile && currentProfile.role === "corporativo";
+  }
+
+  updateUserRoleFields();
+
+  if (modal) modal.classList.remove("hidden");
+}
+
+function closeUserModal() {
+  getEl("userModal")?.classList.add("hidden");
+}
+
+async function handleCreateUser() {
+  const nombre = getEl("newUserNombre")?.value.trim();
+  const email = getEl("newUserEmail")?.value.trim();
+  const password = getEl("newUserPassword")?.value || "";
+  const role = getEl("newUserRole")?.value;
+  const route_code = getEl("newUserRouteCode")?.value.trim();
+  const puesto = getEl("newUserPuesto")?.value;
+  const saveBtn = getEl("saveUserBtn");
+  const errEl = getEl("userModalError");
+
+  const showErr = (msg) => {
+    if (errEl) {
+      errEl.textContent = msg;
+      errEl.classList.remove("hidden");
+    }
+  };
+
+  if (!supabaseClient) {
+    showErr("Falta configurar Supabase en app.js.");
+    return;
+  }
+
+  if (!nombre || !email || !password || !role) {
+    showErr("Completa todos los campos.");
+    return;
+  }
+  if (password.length < 6) {
+    showErr("La contraseña debe tener al menos 6 caracteres.");
+    return;
+  }
+  if (role === "route" && !route_code) {
+    showErr("Escribe el número de ruta.");
+    return;
+  }
+
+  if (saveBtn) {
+    saveBtn.disabled = true;
+    saveBtn.textContent = "Creando...";
+  }
+
+  const { data, error } = await supabaseClient.functions.invoke("create-user", {
+    body: { email, password, nombre, role, route_code, puesto },
+  });
+
+  if (saveBtn) {
+    saveBtn.disabled = false;
+    saveBtn.textContent = "Crear usuario";
+  }
+
+  if (error || (data && data.error)) {
+    showErr((data && data.error) || error?.message || "No se pudo crear el usuario.");
+    return;
+  }
+
+  closeUserModal();
+  if (data && data.estado === "pendiente") {
+    alert("✅ Ruta creada. Queda pendiente de aprobación por un Admin.");
+  } else {
+    alert("✅ Usuario creado correctamente.");
   }
 }
 
