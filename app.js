@@ -1,4 +1,4 @@
-alert("Bimbo Inventory Pro — v9: login con Supabase + roles (admin/corporativo/route) ✅");
+alert("Bimbo Inventory Pro — v9.1: login con Supabase + roles (admin/corporativo/route) ✅");
 
 // =======================
 // SUPABASE (login y roles)
@@ -6,12 +6,12 @@ alert("Bimbo Inventory Pro — v9: login con Supabase + roles (admin/corporativo
 // 👉 Reemplaza estos dos valores con los de tu proyecto:
 // Supabase Dashboard > Settings > API > Project URL / anon public key
 const SUPABASE_URL = "https://obfikwhukpzelsghowcq.supabase.co";
-const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im9iZmlrd2h1a3B6ZWxzZ2hvd2NxIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODM3MjU3NzMsImV4cCI6MjA5OTMwMTc3M30.sKfI_riLcFZA9GyGM6ugW3ELrNb-kLxGNVE53Dv4G70";
+const SUPABASE_ANON_KEY = "sb_publishable_-qW3XyldNJgpOk6BLReC3A_HIyZHrHM";
 
 let supabaseClient = null;
 let supabaseConfigError = null;
 try {
-  if (SUPABASE_URL.startsWith("https://obfikwhukpzelsghowcq.supabase.co") || SUPABASE_ANON_KEY.startsWith("eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im9iZmlrd2h1a3B6ZWxzZ2hvd2NxIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODM3MjU3NzMsImV4cCI6MjA5OTMwMTc3M30.sKfI_riLcFZA9GyGM6ugW3ELrNb-kLxGNVE53Dv4G70")) {
+  if (SUPABASE_URL.startsWith("https://obfikwhukpzelsghowcq.supabase.co") || SUPABASE_ANON_KEY.startsWith("sb_publishable_-qW3XyldNJgpOk6BLReC3A_HIyZHrHM")) {
     throw new Error("Falta configurar SUPABASE_URL y SUPABASE_ANON_KEY en app.js");
   }
   supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
