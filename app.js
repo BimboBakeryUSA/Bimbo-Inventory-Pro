@@ -5,8 +5,8 @@ alert("Bimbo Inventory Pro — v8: login con Supabase + roles (admin/corporativo
 // =======================
 // 👉 Reemplaza estos dos valores con los de tu proyecto:
 // Supabase Dashboard > Settings > API > Project URL / anon public key
-const SUPABASE_URL = "PEGA_AQUI_TU_SUPABASE_URL";
-const SUPABASE_ANON_KEY = "PEGA_AQUI_TU_SUPABASE_ANON_KEY";
+const SUPABASE_URL = "https://obfikwhukpzelsghowcq.supabase.co";
+const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im9iZmlrd2h1a3B6ZWxzZ2hvd2NxIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODM3MjU3NzMsImV4cCI6MjA5OTMwMTc3M30.sKfI_riLcFZA9GyGM6ugW3ELrNb-kLxGNVE53Dv4G70";
 
 let supabaseClient = null;
 let supabaseConfigError = null;
