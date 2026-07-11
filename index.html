@@ -6,7 +6,7 @@
   <title>Bimbo Inventory Pro</title>
   <meta name="theme-color" content="#ffffff" />
   <link rel="manifest" href="manifest.json" />
-  <link rel="stylesheet" href="styles.css?v=22" />
+  <link rel="stylesheet" href="styles.css?v=23" />
 </head>
 <body>
 
@@ -102,7 +102,10 @@
     <section class="drawer-section" data-usermgmt-only>
       <h3>Usuarios</h3>
       <p class="help-text">Admin puede crear Admin, Corporativo o Route. Corporativo solo puede crear Route (queda pendiente de aprobación).</p>
-      <button id="addUserBtn" class="yellow-btn full-width">+ Agregar usuario</button>
+      <div class="button-row">
+        <button id="viewUsersBtn" class="dark-btn">Ver usuarios</button>
+        <button id="addUserBtn" class="yellow-btn">+ Agregar</button>
+      </div>
     </section>
 
     <section class="drawer-section" data-admin-only>
@@ -123,7 +126,6 @@
 
     <section class="drawer-section drawer-footer">
       <span class="help-text">Bimbo Inventory Pro v3</span>
-      <span class="help-text">By DJM</span>
     </section>
   </nav>
 
@@ -146,7 +148,7 @@
         <button id="goUsersCardBtn" class="admin-card" data-usermgmt-only>
           <span class="admin-card-icon">👥</span>
           <span class="admin-card-title">Usuarios</span>
-          <span class="admin-card-sub">Crear cuentas nuevas</span>
+          <span class="admin-card-sub">Ver, crear y aprobar cuentas</span>
         </button>
 
         <button id="goCatalogCardBtn" class="admin-card" data-admin-only>
@@ -333,6 +335,21 @@
     </div>
   </div>
 
+  <div id="usersListModal" class="modal hidden" role="dialog" aria-modal="true">
+    <div class="modal-card">
+      <div class="modal-head">
+        <h2>Usuarios</h2>
+        <button id="closeUsersListModalBtn" class="close-btn">×</button>
+      </div>
+
+      <button id="usersListAddBtn" class="yellow-btn full-width">+ Agregar usuario</button>
+
+      <div id="usersListContainer" class="users-list">
+        <p class="help-text">Cargando...</p>
+      </div>
+    </div>
+  </div>
+
   <div id="catalogModal" class="modal hidden" role="dialog" aria-modal="true">
     <div class="modal-card">
       <div class="modal-head">
@@ -408,6 +425,6 @@
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
 <script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
-<script src="app.js?v=22"></script>
+<script src="app.js?v=23"></script>
 </body>
 </html>

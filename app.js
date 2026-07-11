@@ -1,4 +1,4 @@
-alert("Bimbo Inventory Pro — v22: en Admin, botones al final y productos escaneados arriba ✅");
+alert("Bimbo Inventory Pro — v23: pantalla 'Ver usuarios' (aprobar/eliminar) ✅");
 
 // =======================
 // SUPABASE (login y roles)
@@ -1020,10 +1020,19 @@ function setupEvents() {
   const goScanCardBtn = getEl("goScanCardBtn");
 
   if (goHistoryCardBtn) goHistoryCardBtn.onclick = openHistoryModal;
-  if (goUsersCardBtn) goUsersCardBtn.onclick = openUserModal;
+  if (goUsersCardBtn) goUsersCardBtn.onclick = openUsersListModal;
   if (goCatalogCardBtn) goCatalogCardBtn.onclick = openCatalogModal;
   if (goPendingCardBtn) goPendingCardBtn.onclick = openDrawer;
   if (goScanCardBtn) goScanCardBtn.onclick = promptScanMethodForAdmin;
+
+  // Ver usuarios
+  const viewUsersBtn = getEl("viewUsersBtn");
+  const closeUsersListModalBtn = getEl("closeUsersListModalBtn");
+  const usersListAddBtn = getEl("usersListAddBtn");
+
+  if (viewUsersBtn) viewUsersBtn.onclick = openUsersListModal;
+  if (closeUsersListModalBtn) closeUsersListModalBtn.onclick = closeUsersListModal;
+  if (usersListAddBtn) usersListAddBtn.onclick = openUserModal;
 
   // Catálogo de productos
   const closeCatalogModalBtn = getEl("closeCatalogModalBtn");
@@ -1509,6 +1518,116 @@ async function handleCreateUser() {
   } else {
     alert("✅ Usuario creado correctamente.");
   }
+
+  // Si la lista de usuarios está abierta, refléjalo ahí también.
+  const usersListModal = getEl("usersListModal");
+  if (usersListModal && !usersListModal.classList.contains("hidden")) {
+    loadUsersList();
+  }
+}
+
+// =======================
+// VER USUARIOS (Admin ve todos; Corporativo solo los que él creó)
+// =======================
+function openUsersListModal() {
+  getEl("usersListModal")?.classList.remove("hidden");
+  loadUsersList();
+}
+
+function closeUsersListModal() {
+  getEl("usersListModal")?.classList.add("hidden");
+}
+
+async function loadUsersList() {
+  const list = getEl("usersListContainer");
+  if (!list || !supabaseClient || !currentProfile) return;
+
+  list.innerHTML = '<p class="help-text">Cargando...</p>';
+
+  let query = supabaseClient
+    .from("profiles")
+    .select("id, nombre, role, route_code, puesto, estado, created_at")
+    .order("created_at", { ascending: false });
+
+  // Corporativo solo ve las cuentas (route) que él mismo creó.
+  if (currentProfile.role === "corporativo") {
+    query = query.eq("creado_por", currentUser.id);
+  }
+
+  const { data, error } = await query;
+
+  if (error) {
+    list.innerHTML = '<p class="help-text">Error cargando usuarios: ' + error.message + '</p>';
+    console.error(error);
+    return;
+  }
+
+  if (!data || data.length === 0) {
+    list.innerHTML = '<p class="help-text">Todavía no hay usuarios para mostrar.</p>';
+    return;
+  }
+
+  const isAdmin = currentProfile.role === "admin";
+
+  list.innerHTML = "";
+  data.forEach((row) => {
+    const roleLabel =
+      row.role === "admin" ? "Admin" :
+      row.role === "corporativo" ? "Corporativo" + (row.puesto ? " (" + row.puesto + ")" : "") :
+      "Route" + (row.route_code ? " " + row.route_code : "");
+
+    const estadoLabel = row.estado === "pendiente" ? "Pendiente" : "Activo";
+
+    const rowEl = document.createElement("div");
+    rowEl.className = "user-row";
+    rowEl.innerHTML =
+      '<div class="user-row-info">' +
+      "<strong>" + (row.nombre || "Sin nombre") + "</strong>" +
+      "<span>" + roleLabel + ' · <span class="user-status ' + row.estado + '">' + estadoLabel + "</span></span>" +
+      "</div>" +
+      '<div class="user-row-actions"></div>';
+
+    const actions = rowEl.querySelector(".user-row-actions");
+
+    if (isAdmin) {
+      if (row.estado === "pendiente") {
+        const approveBtn = document.createElement("button");
+        approveBtn.className = "user-approve-btn";
+        approveBtn.textContent = "Aprobar";
+        approveBtn.onclick = async () => {
+          await approvePendingRoute(row.id);
+          loadUsersList();
+        };
+        actions.appendChild(approveBtn);
+      }
+
+      if (row.role !== "admin") {
+        const deleteBtn = document.createElement("button");
+        deleteBtn.className = "user-delete-btn";
+        deleteBtn.textContent = "Eliminar";
+        deleteBtn.onclick = () => deleteUserFromList(row.id);
+        actions.appendChild(deleteBtn);
+      }
+    }
+
+    list.appendChild(rowEl);
+  });
+}
+
+async function deleteUserFromList(userId) {
+  if (!confirm("¿Eliminar esta cuenta? No se podrá deshacer.")) return;
+
+  const { data, error } = await supabaseClient.functions.invoke("delete-user", {
+    body: { userId },
+  });
+
+  if (error || (data && data.error)) {
+    alert("❌ No se pudo eliminar: " + ((data && data.error) || error?.message));
+    return;
+  }
+
+  loadUsersList();
+  refreshPendingBadge();
 }
 
 // =======================
