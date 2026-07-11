@@ -1,5 +1,5 @@
-alert("Bimbo Inventory Pro — v4: cámara fullscreen + popup de escaneo ✅");
- 
+alert("Bimbo Inventory Pro — v5: fix fullscreen real de cámara (!important) + botón detener ya no tapa totales ✅");
+
 // =======================
 // GLOBAL ERROR HANDLER (silencioso, solo consola)
 // =======================
@@ -339,6 +339,13 @@ async function startCamera() {
       return;
     }
 
+    // Activamos pantalla completa ANTES de iniciar la cámara,
+    // para que html5-qrcode calcule el tamaño del video ya en modo fullscreen.
+    setCameraFullscreen(true);
+    // Esperamos un frame para que el navegador aplique el nuevo layout
+    // antes de que la librería mida el contenedor.
+    await new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve)));
+
     html5QrCode = new Html5Qrcode("reader");
 
     await html5QrCode.start(
@@ -358,7 +365,6 @@ async function startCamera() {
     );
 
     scanning = true;
-    setCameraFullscreen(true);
 
     const statusPill = getEl("statusPill");
     if (statusPill) {
@@ -367,6 +373,7 @@ async function startCamera() {
     }
   } catch (err) {
     console.error(err);
+    setCameraFullscreen(false);
     alert("❌ Error cámara: " + err);
   }
 }
