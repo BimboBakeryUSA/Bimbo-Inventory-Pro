@@ -1,4 +1,4 @@
-alert("Bimbo Inventory Pro — v15: sync offline-first + indicador + reintento automático ✅");
+alert("Bimbo Inventory Pro — v16: cerrar lista funciona offline (se encola y cierra sola) ✅");
 
 // =======================
 // SUPABASE (login y roles)
@@ -25,6 +25,7 @@ let currentProfile = null; // fila de la tabla profiles: { role, nombre, route_c
 let currentSession = null; // fila de scan_sessions: la "lista" abierta de esta ruta
 let syncPending = localStorage.getItem("bip_sync_pending") === "1"; // ¿hay cambios sin subir a Supabase?
 let syncInProgress = false;
+let closePending = localStorage.getItem("bip_close_pending") === "1"; // ¿hay que cerrar la lista en cuanto haya red?
 
 // =======================
 // GLOBAL ERROR HANDLER (silencioso, solo consola)
@@ -1011,18 +1012,19 @@ function setupEvents() {
     getEl("scannerInput")?.focus();
   });
 
-  // Reintento automático de sincronización cuando vuelve la conexión
-  window.addEventListener("online", () => {
+  // Reintento automático de sincronización (y de cierre de lista) cuando vuelve la conexión
+  window.addEventListener("online", async () => {
     updateSyncIndicator();
-    if (syncPending) syncCurrentSessionItems();
+    if (syncPending) await syncCurrentSessionItems();
+    if (closePending) await tryCloseWhenOnline();
   });
   window.addEventListener("offline", () => {
     updateSyncIndicator();
   });
-  setInterval(() => {
-    if (syncPending && navigator.onLine && !syncInProgress) {
-      syncCurrentSessionItems();
-    }
+  setInterval(async () => {
+    if (!navigator.onLine) return;
+    if (syncPending && !syncInProgress) await syncCurrentSessionItems();
+    if (closePending) await tryCloseWhenOnline();
   }, 15000);
 
   window.addEventListener("beforeinstallprompt", (e) => {
@@ -1488,7 +1490,10 @@ function updateSyncIndicator() {
   const pill = getEl("syncStatusPill");
   if (!pill) return;
 
-  if (!navigator.onLine) {
+  if (closePending) {
+    pill.textContent = navigator.onLine ? "🔒 Cerrando lista..." : "🔒 Se cerrará al conectar";
+    pill.className = "sync-pill pending";
+  } else if (!navigator.onLine) {
     pill.textContent = "📴 Sin conexión";
     pill.className = "sync-pill offline";
   } else if (syncInProgress) {
@@ -1587,10 +1592,63 @@ async function initSessionForRoute() {
 
     // Si quedaron cambios pendientes de una sesión anterior sin conexión,
     // intentamos subirlos ahora que la app ya está lista.
-    if (syncPending && navigator.onLine) {
-      syncCurrentSessionItems();
+    if (navigator.onLine) {
+      if (closePending) {
+        await tryCloseWhenOnline();
+      } else if (syncPending) {
+        syncCurrentSessionItems();
+      }
     }
   }
+}
+
+function markClosePending(pending) {
+  closePending = pending;
+  localStorage.setItem("bip_close_pending", pending ? "1" : "0");
+  updateSyncIndicator();
+}
+
+// Hace el cierre real contra Supabase. Se usa tanto al cerrar con conexión
+// como cuando el reintento automático detecta que ya hay señal.
+async function performCloseSession() {
+  if (!currentSession || !supabaseClient) return false;
+
+  const { error } = await supabaseClient
+    .from("scan_sessions")
+    .update({
+      estado: "cerrada",
+      cerrada_en: new Date().toISOString(),
+      cerrada_por: currentUser?.id || null
+    })
+    .eq("id", currentSession.id);
+
+  if (error) {
+    console.error("No se pudo cerrar la lista:", error);
+    return false;
+  }
+
+  markClosePending(false);
+
+  // Abrimos una lista nueva y limpiamos la pantalla para seguir escaneando.
+  counts = {};
+  saveAllLocalOnly();
+  render();
+  await initSessionForRoute();
+  return true;
+}
+
+// Se llama desde el evento "online" y el retry periódico: si había un
+// cierre en cola, primero asegura subir los últimos scans y luego cierra.
+async function tryCloseWhenOnline() {
+  if (!closePending || !currentSession || !navigator.onLine) return;
+
+  if (syncPending) {
+    await syncCurrentSessionItems();
+    if (syncPending) return; // sigue sin poder subir, no cerramos todavía
+  }
+
+  const ok = await performCloseSession();
+  if (ok) alert("✅ Ya volvió la conexión: la lista se cerró y se abrió una nueva.");
 }
 
 async function closeCurrentList() {
@@ -1598,32 +1656,27 @@ async function closeCurrentList() {
 
   if (syncPending || !navigator.onLine) {
     const proceed = confirm(
-      "⚠️ Todavía hay cambios sin subir a la nube (sin conexión o falló la sincronización).\n" +
-      "Si cierras ahora, esos últimos cambios podrían no quedar guardados en el servidor.\n\n" +
-      "¿Cerrar de todas formas?"
+      "⚠️ No hay conexión (o hay scans sin subir todavía).\n" +
+      "Cerrar la lista también necesita internet.\n\n" +
+      "Puedo dejarla marcada para cerrarse sola en cuanto vuelva la señal — " +
+      "mientras tanto puedes seguir escaneando en esta misma lista sin perder nada.\n\n" +
+      "¿Marcarla para cerrar automáticamente?"
     );
     if (!proceed) return;
-  } else if (!confirm("¿Cerrar esta lista? Ya no podrás modificarla después.")) {
+
+    markClosePending(true);
+    alert("📌 Quedó marcada. Se cerrará sola apenas haya conexión.");
     return;
   }
 
-  const { error } = await supabaseClient
-    .from("scan_sessions")
-    .update({ estado: "cerrada", cerrada_en: new Date().toISOString(), cerrada_por: currentUser?.id || null })
-    .eq("id", currentSession.id);
+  if (!confirm("¿Cerrar esta lista? Ya no podrás modificarla después.")) return;
 
-  if (error) {
-    alert("❌ No se pudo cerrar la lista: " + error.message);
-    return;
+  const ok = await performCloseSession();
+  if (ok) {
+    alert("✅ Lista cerrada. Se abrió una lista nueva para seguir escaneando.");
+  } else {
+    alert("❌ No se pudo cerrar la lista. Intenta de nuevo.");
   }
-
-  alert("✅ Lista cerrada. Se abrió una lista nueva para seguir escaneando.");
-
-  // Abrimos una lista nueva y limpiamos la pantalla para seguir escaneando.
-  counts = {};
-  saveAllLocalOnly();
-  render();
-  await initSessionForRoute();
 }
 
 // Igual que saveAll() pero sin re-sincronizar la sesión (para evitar
