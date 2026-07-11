@@ -1,4 +1,4 @@
-alert("Bimbo Inventory Pro — v14: historial de rutas (Admin/Corporativo) ✅");
+alert("Bimbo Inventory Pro — v15: sync offline-first + indicador + reintento automático ✅");
 
 // =======================
 // SUPABASE (login y roles)
@@ -23,6 +23,8 @@ try {
 let currentUser = null;    // sesión de auth de Supabase
 let currentProfile = null; // fila de la tabla profiles: { role, nombre, route_code, puesto, estado }
 let currentSession = null; // fila de scan_sessions: la "lista" abierta de esta ruta
+let syncPending = localStorage.getItem("bip_sync_pending") === "1"; // ¿hay cambios sin subir a Supabase?
+let syncInProgress = false;
 
 // =======================
 // GLOBAL ERROR HANDLER (silencioso, solo consola)
@@ -1009,6 +1011,20 @@ function setupEvents() {
     getEl("scannerInput")?.focus();
   });
 
+  // Reintento automático de sincronización cuando vuelve la conexión
+  window.addEventListener("online", () => {
+    updateSyncIndicator();
+    if (syncPending) syncCurrentSessionItems();
+  });
+  window.addEventListener("offline", () => {
+    updateSyncIndicator();
+  });
+  setInterval(() => {
+    if (syncPending && navigator.onLine && !syncInProgress) {
+      syncCurrentSessionItems();
+    }
+  }, 15000);
+
   window.addEventListener("beforeinstallprompt", (e) => {
     e.preventDefault();
     deferredPrompt = e;
@@ -1459,15 +1475,60 @@ async function loadSessionItemsIntoCounts(sessionId) {
   counts = loaded;
 }
 
-// Reemplaza por completo los items de la sesión actual con lo que hay en "counts".
-// Simple y confiable: borra y vuelve a insertar (las listas son chicas, no hay problema de tamaño).
+// =======================
+// ESTADO DE SINCRONIZACIÓN (offline-first)
+// =======================
+function markSyncPending(pending) {
+  syncPending = pending;
+  localStorage.setItem("bip_sync_pending", pending ? "1" : "0");
+  updateSyncIndicator();
+}
+
+function updateSyncIndicator() {
+  const pill = getEl("syncStatusPill");
+  if (!pill) return;
+
+  if (!navigator.onLine) {
+    pill.textContent = "📴 Sin conexión";
+    pill.className = "sync-pill offline";
+  } else if (syncInProgress) {
+    pill.textContent = "🔄 Sincronizando...";
+    pill.className = "sync-pill syncing";
+  } else if (syncPending) {
+    pill.textContent = "⚠️ Pendiente de subir";
+    pill.className = "sync-pill pending";
+  } else {
+    pill.textContent = "✅ Sincronizado";
+    pill.className = "sync-pill ok";
+  }
+
+  // Respetamos el gating de rol: solo se ve si el profile actual es "route".
+  if (currentProfile && currentProfile.role === "route") {
+    pill.classList.remove("hidden");
+  }
+}
+
+// Sube "counts" a la sesión actual de forma segura para redes inestables:
+// 1) primero sube (upsert) todo lo que hay local — nunca borra nada si algo falla.
+// 2) solo después borra en el servidor lo que ya no está local (productos quitados).
+// Así, si se corta la conexión a la mitad, en el peor caso queda un dato viejo
+// de más (no destructivo), nunca se pierde lo que el usuario ya escaneó.
 async function syncCurrentSessionItems() {
   if (!supabaseClient || !currentSession || !currentProfile || currentProfile.role !== "route") return;
 
-  try {
-    await supabaseClient.from("scan_session_items").delete().eq("session_id", currentSession.id);
+  if (!navigator.onLine) {
+    markSyncPending(true);
+    return;
+  }
 
-    const rows = Object.values(counts).map((item) => ({
+  syncInProgress = true;
+  updateSyncIndicator();
+
+  try {
+    const localItems = Object.values(counts);
+    const localKeys = new Set(localItems.map((item) => item.UPC));
+
+    const rows = localItems.map((item) => ({
       session_id: currentSession.id,
       upc: item.UPC,
       sku: item.SKU,
@@ -1478,11 +1539,39 @@ async function syncCurrentSessionItems() {
     }));
 
     if (rows.length) {
-      const { error } = await supabaseClient.from("scan_session_items").insert(rows);
-      if (error) console.error("Error sincronizando lista de escaneo:", error);
+      const { error: upsertError } = await supabaseClient
+        .from("scan_session_items")
+        .upsert(rows, { onConflict: "session_id,upc" });
+      if (upsertError) throw upsertError;
     }
+
+    const { data: remoteItems, error: remoteError } = await supabaseClient
+      .from("scan_session_items")
+      .select("upc")
+      .eq("session_id", currentSession.id);
+
+    if (remoteError) throw remoteError;
+
+    const toDelete = (remoteItems || [])
+      .map((r) => r.upc)
+      .filter((upc) => !localKeys.has(upc));
+
+    if (toDelete.length) {
+      const { error: deleteError } = await supabaseClient
+        .from("scan_session_items")
+        .delete()
+        .eq("session_id", currentSession.id)
+        .in("upc", toDelete);
+      if (deleteError) throw deleteError;
+    }
+
+    markSyncPending(false);
   } catch (e) {
     console.error("Error sincronizando lista de escaneo:", e);
+    markSyncPending(true);
+  } finally {
+    syncInProgress = false;
+    updateSyncIndicator();
   }
 }
 
@@ -1490,15 +1579,33 @@ async function initSessionForRoute() {
   if (!currentProfile || currentProfile.role !== "route") return;
 
   currentSession = await findOrCreateOpenSession();
+  updateSyncIndicator();
+
   if (currentSession) {
     await loadSessionItemsIntoCounts(currentSession.id);
     render();
+
+    // Si quedaron cambios pendientes de una sesión anterior sin conexión,
+    // intentamos subirlos ahora que la app ya está lista.
+    if (syncPending && navigator.onLine) {
+      syncCurrentSessionItems();
+    }
   }
 }
 
 async function closeCurrentList() {
   if (!currentSession) return;
-  if (!confirm("¿Cerrar esta lista? Ya no podrás modificarla después.")) return;
+
+  if (syncPending || !navigator.onLine) {
+    const proceed = confirm(
+      "⚠️ Todavía hay cambios sin subir a la nube (sin conexión o falló la sincronización).\n" +
+      "Si cierras ahora, esos últimos cambios podrían no quedar guardados en el servidor.\n\n" +
+      "¿Cerrar de todas formas?"
+    );
+    if (!proceed) return;
+  } else if (!confirm("¿Cerrar esta lista? Ya no podrás modificarla después.")) {
+    return;
+  }
 
   const { error } = await supabaseClient
     .from("scan_sessions")
