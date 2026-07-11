@@ -1,4 +1,4 @@
-alert("Bimbo Inventory Pro — v8: login con Supabase + roles (admin/corporativo/route) ✅");
+alert("Bimbo Inventory Pro — v9: login con Supabase + roles (admin/corporativo/route) ✅");
 
 // =======================
 // SUPABASE (login y roles)
