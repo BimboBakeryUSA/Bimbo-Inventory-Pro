@@ -1,4 +1,4 @@
-alert("APP.JS CARGADO ✅ Supabase");
+alert("APP.JS CARGADO ✅ V6");
 
 // =======================
 // GLOBAL ERROR HANDLER
@@ -702,14 +702,6 @@ function setupEvents() {
     };
   }
 }
-//+++++++++++++++++++++++++++
-
-
-
-
-
-
-
 
 // =======================
 // INIT
