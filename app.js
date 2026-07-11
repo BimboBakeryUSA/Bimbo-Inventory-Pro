@@ -1,4 +1,4 @@
-alert("Bimbo Inventory Pro — v17: pantalla 'Mis conteos' + elegir cámara/pistola al crear lista ✅");
+alert("Bimbo Inventory Pro — v18: banner arreglado, conteos vacíos se descartan, editar producto solo Admin ✅");
 
 // =======================
 // SUPABASE (login y roles)
@@ -348,6 +348,10 @@ function render() {
         // Si se está viendo una lista ya cerrada (solo lectura), no se puede
         // editar el conteo: se ocultan los controles de +/-, borrar y editar.
         const readOnly = currentProfile && currentProfile.role === "route" && viewingReadOnly;
+        // Editar nombre/datos del producto es exclusivo de Admin (catálogo
+        // compartido): Route y Corporativo nunca ven ese botón, aunque la
+        // lista siga abierta.
+        const canEditCatalog = currentProfile && currentProfile.role === "admin";
 
         if (plusBtn) {
           if (readOnly) {
@@ -387,7 +391,7 @@ function render() {
         }
 
         if (editBtn) {
-          if (readOnly) {
+          if (readOnly || !canEditCatalog) {
             editBtn.classList.add("hidden");
           } else {
             editBtn.onclick = () => openProductModal(item.UPC);
@@ -1894,8 +1898,46 @@ async function tryCloseWhenOnline() {
   if (ok) alert("✅ Ya volvió la conexión: la lista se cerró.");
 }
 
+// Borra por completo una lista abierta que no tiene ningún producto
+// escaneado: no vale la pena guardarla como "cerrada" en el historial.
+async function discardEmptySession() {
+  if (!currentSession) return;
+
+  if (!navigator.onLine) {
+    alert("📴 Necesitas conexión para descartar un conteo vacío. Intenta de nuevo cuando tengas señal.");
+    return;
+  }
+
+  if (!confirm("Este conteo está vacío. ¿Descartarlo? No hace falta guardarlo.")) return;
+
+  const { error } = await supabaseClient
+    .from("scan_sessions")
+    .delete()
+    .eq("id", currentSession.id);
+
+  if (error) {
+    alert("❌ No se pudo descartar: " + error.message);
+    return;
+  }
+
+  if (scanning) await stopCamera();
+
+  markClosePending(false);
+  currentSession = null;
+  viewingSessionId = null;
+  viewingReadOnly = false;
+  counts = {};
+  saveAllLocalOnly();
+  showHomeView();
+}
+
 async function closeCurrentList() {
   if (!currentSession) return;
+
+  if (Object.keys(counts).length === 0) {
+    await discardEmptySession();
+    return;
+  }
 
   if (syncPending || !navigator.onLine) {
     const proceed = confirm(
