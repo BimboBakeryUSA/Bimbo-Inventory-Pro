@@ -214,6 +214,18 @@ button{border:0;border-radius:14px;padding:13px 14px;font-size:14px;font-weight:
 .scan-toast-text strong{font-size:14px}
 .scan-toast-text span{font-size:12px;color:var(--gray)}
 
+/* ===================== LOGIN ===================== */
+.login-screen{
+  position:fixed;inset:0;z-index:500;background:#fff;
+  display:flex;align-items:center;justify-content:center;padding:20px;
+}
+.login-card{width:100%;max-width:360px;text-align:center}
+.login-logo{width:64px;height:64px;margin-bottom:10px}
+.login-card h1{font-size:22px;color:var(--red);margin-bottom:2px}
+.login-card label{text-align:left}
+.login-error{color:var(--red);font-size:13px;margin-top:10px;font-weight:700}
+.full-width{width:100%;margin-top:14px}
+
 @media(max-width:700px){
   .button-grid{grid-template-columns:1fr 1fr}
   .brand-text h1{font-size:15px}

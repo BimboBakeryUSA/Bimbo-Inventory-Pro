@@ -10,6 +10,28 @@
 </head>
 <body>
 
+  <!-- ===================== LOGIN ===================== -->
+  <div id="loginScreen" class="login-screen">
+    <div class="login-card">
+      <img src="icon.svg" alt="Bimbo" class="login-logo">
+      <h1>Bimbo Inventory Pro</h1>
+      <p class="help-text">Inicia sesión para continuar</p>
+
+      <label for="loginEmail">Correo</label>
+      <input id="loginEmail" type="email" autocomplete="username" placeholder="tucorreo@bimbo.com" />
+
+      <label for="loginPassword">Contraseña</label>
+      <input id="loginPassword" type="password" autocomplete="current-password" placeholder="••••••••" />
+
+      <p id="loginError" class="login-error hidden"></p>
+
+      <button id="loginSubmitBtn" class="primary-btn full-width">Entrar</button>
+    </div>
+  </div>
+
+  <!-- ===================== APP (oculta hasta iniciar sesión) ===================== -->
+  <div id="appRoot" class="hidden">
+
   <!-- Popup de confirmación de escaneo -->
   <div id="scanToast" class="scan-toast">
     <span class="scan-toast-icon">✅</span>
@@ -41,9 +63,9 @@
   <!-- Menú de perfil (desplegable arriba a la derecha) -->
   <div id="profileMenu" class="profile-menu hidden">
     <div class="profile-menu-head">
-      <span class="avatar-circle large">U</span>
+      <span id="profileAvatarInitial" class="avatar-circle large">U</span>
       <div>
-        <strong>Usuario</strong>
+        <strong id="profileNameLabel">Usuario</strong>
         <span id="profileRouteLabel">Sin ruta asignada</span>
       </div>
     </div>
@@ -66,7 +88,7 @@
       <input id="routeInput" type="text" inputmode="numeric" placeholder="Ejemplo: 2306" />
     </section>
 
-    <section class="drawer-section">
+    <section class="drawer-section" data-admin-only>
       <h3>Base de productos</h3>
       <p class="help-text">Sube un CSV con columnas: UPC, SKU, Producto, UnidadesCaja, Foto</p>
       <input id="csvInput" type="file" accept=".csv" />
@@ -115,7 +137,7 @@
 
     <section class="actions-card">
       <div class="button-grid">
-        <button id="addProductBtn" class="yellow-btn">+ Agregar producto</button>
+        <button id="addProductBtn" class="yellow-btn" data-admin-only>+ Agregar producto</button>
         <button id="exportBtn" class="blue-btn">Exportar CSV</button>
         <button id="whatsappBtn" class="green-btn">WhatsApp</button>
         <button id="clearBtn" class="red-light-btn">Limpiar conteo</button>
@@ -188,6 +210,9 @@
     </article>
   </template>
 
+  </div><!-- /#appRoot -->
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
 <script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
 <script src="app.js"></script>
 </body>

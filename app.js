@@ -1,4 +1,27 @@
-alert("Bimbo Inventory Pro — v7: confirmación por doble lectura + validación checksum + pausa 0.5s tras aceptar ✅");
+alert("Bimbo Inventory Pro — v8: login con Supabase + roles (admin/corporativo/route) ✅");
+
+// =======================
+// SUPABASE (login y roles)
+// =======================
+// 👉 Reemplaza estos dos valores con los de tu proyecto:
+// Supabase Dashboard > Settings > API > Project URL / anon public key
+const SUPABASE_URL = "PEGA_AQUI_TU_SUPABASE_URL";
+const SUPABASE_ANON_KEY = "PEGA_AQUI_TU_SUPABASE_ANON_KEY";
+
+let supabaseClient = null;
+let supabaseConfigError = null;
+try {
+  if (SUPABASE_URL.startsWith("PEGA_AQUI") || SUPABASE_ANON_KEY.startsWith("PEGA_AQUI")) {
+    throw new Error("Falta configurar SUPABASE_URL y SUPABASE_ANON_KEY en app.js");
+  }
+  supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+} catch (e) {
+  console.error(e);
+  supabaseConfigError = e.message;
+}
+
+let currentUser = null;    // sesión de auth de Supabase
+let currentProfile = null; // fila de la tabla profiles: { role, nombre, route_code, puesto, estado }
 
 // =======================
 // GLOBAL ERROR HANDLER (silencioso, solo consola)
@@ -861,8 +884,25 @@ function setupEvents() {
   if (profileLogoutBtn) {
     profileLogoutBtn.onclick = () => {
       toggleProfileMenu(true);
-      alert("Función de cuentas próximamente.");
+      handleLogout();
     };
+  }
+
+  // Login
+  const loginSubmitBtn = getEl("loginSubmitBtn");
+  const loginPassword = getEl("loginPassword");
+  const loginEmail = getEl("loginEmail");
+
+  if (loginSubmitBtn) loginSubmitBtn.onclick = handleLogin;
+  if (loginPassword) {
+    loginPassword.addEventListener("keydown", (e) => {
+      if (e.key === "Enter") handleLogin();
+    });
+  }
+  if (loginEmail) {
+    loginEmail.addEventListener("keydown", (e) => {
+      if (e.key === "Enter") getEl("loginPassword")?.focus();
+    });
   }
 
   window.addEventListener("keydown", (e) => {
@@ -893,6 +933,159 @@ function setupEvents() {
 }
 
 // =======================
+// AUTENTICACIÓN Y ROLES
+// =======================
+function showLogin(message) {
+  getEl("loginScreen")?.classList.remove("hidden");
+  getEl("appRoot")?.classList.add("hidden");
+
+  const errEl = getEl("loginError");
+  if (errEl) {
+    if (message) {
+      errEl.textContent = message;
+      errEl.classList.remove("hidden");
+    } else {
+      errEl.classList.add("hidden");
+    }
+  }
+}
+
+function showApp() {
+  getEl("loginScreen")?.classList.add("hidden");
+  getEl("appRoot")?.classList.remove("hidden");
+}
+
+async function fetchProfile(userId) {
+  const { data, error } = await supabaseClient
+    .from("profiles")
+    .select("*")
+    .eq("id", userId)
+    .single();
+
+  if (error) {
+    console.error("Error cargando perfil:", error);
+    return null;
+  }
+  return data;
+}
+
+// Muestra/oculta lo que solo puede usar un Admin, y ajusta la ruta/menú de perfil
+function applyRoleGating(profile) {
+  const isAdmin = profile.role === "admin";
+
+  document.querySelectorAll("[data-admin-only]").forEach((el) => {
+    el.classList.toggle("hidden", !isAdmin);
+  });
+
+  const routeInput = getEl("routeInput");
+  if (profile.role === "route" && routeInput) {
+    routeInput.value = profile.route_code || "";
+    routeInput.disabled = true;
+    routeValue = profile.route_code || "";
+    saveAll();
+  }
+
+  const nameLabel = getEl("profileNameLabel");
+  const avatarInitial = getEl("profileAvatarInitial");
+  const avatarSmall = document.querySelector("#profileBtn .avatar-circle");
+  const initial = (profile.nombre || profile.role || "U").trim().charAt(0).toUpperCase();
+
+  if (nameLabel) nameLabel.textContent = profile.nombre || "Usuario";
+  if (avatarInitial) avatarInitial.textContent = initial;
+  if (avatarSmall) avatarSmall.textContent = initial;
+
+  const routeLabel = getEl("profileRouteLabel");
+  if (routeLabel) {
+    if (profile.role === "route") {
+      routeLabel.textContent = "Ruta: " + (profile.route_code || "N/A");
+    } else if (profile.role === "corporativo") {
+      routeLabel.textContent = profile.puesto || "Corporativo";
+    } else {
+      routeLabel.textContent = "Administrador";
+    }
+  }
+}
+
+async function afterLogin(user) {
+  currentUser = user;
+  const profile = await fetchProfile(user.id);
+
+  if (!profile) {
+    showLogin("Tu cuenta no tiene un perfil asignado. Contacta a un Admin.");
+    await supabaseClient.auth.signOut();
+    currentUser = null;
+    return;
+  }
+
+  if (profile.estado === "pendiente") {
+    showLogin("Tu cuenta está pendiente de aprobación por un Admin.");
+    await supabaseClient.auth.signOut();
+    currentUser = null;
+    return;
+  }
+
+  currentProfile = profile;
+  showApp();
+  applyRoleGating(profile);
+}
+
+async function handleLogin() {
+  if (!supabaseClient) {
+    showLogin("Falta configurar Supabase en app.js (SUPABASE_URL / SUPABASE_ANON_KEY).");
+    return;
+  }
+
+  const email = getEl("loginEmail")?.value.trim();
+  const password = getEl("loginPassword")?.value || "";
+  const submitBtn = getEl("loginSubmitBtn");
+
+  if (!email || !password) {
+    showLogin("Escribe tu correo y contraseña.");
+    return;
+  }
+
+  if (submitBtn) {
+    submitBtn.disabled = true;
+    submitBtn.textContent = "Entrando...";
+  }
+
+  const { data, error } = await supabaseClient.auth.signInWithPassword({ email, password });
+
+  if (submitBtn) {
+    submitBtn.disabled = false;
+    submitBtn.textContent = "Entrar";
+  }
+
+  if (error) {
+    showLogin("Correo o contraseña incorrectos.");
+    return;
+  }
+
+  await afterLogin(data.user);
+}
+
+async function handleLogout() {
+  if (supabaseClient) await supabaseClient.auth.signOut();
+  currentUser = null;
+  currentProfile = null;
+  location.reload();
+}
+
+async function checkExistingSession() {
+  if (!supabaseClient) {
+    showLogin("Falta configurar Supabase en app.js (SUPABASE_URL / SUPABASE_ANON_KEY).");
+    return;
+  }
+
+  const { data } = await supabaseClient.auth.getSession();
+  if (data && data.session && data.session.user) {
+    await afterLogin(data.session.user);
+  } else {
+    showLogin();
+  }
+}
+
+// =======================
 // INIT
 // =======================
 document.addEventListener("DOMContentLoaded", async () => {
@@ -901,6 +1094,7 @@ document.addEventListener("DOMContentLoaded", async () => {
     migrateCountsIfNeeded();
     setupEvents();
     render();
+    await checkExistingSession();
     setTimeout(() => getEl("scannerInput")?.focus(), 300);
   } catch (e) {
     console.error("INIT ERROR:", e);
