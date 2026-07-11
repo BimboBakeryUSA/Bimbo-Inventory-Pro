@@ -1,4 +1,4 @@
-alert("Bimbo Inventory Pro — v12: catálogo de productos compartido vía Supabase ✅");
+alert("Bimbo Inventory Pro — v13: listas de escaneo por ruta (retomar/cerrar) ✅");
 
 // =======================
 // SUPABASE (login y roles)
@@ -22,6 +22,7 @@ try {
 
 let currentUser = null;    // sesión de auth de Supabase
 let currentProfile = null; // fila de la tabla profiles: { role, nombre, route_code, puesto, estado }
+let currentSession = null; // fila de scan_sessions: la "lista" abierta de esta ruta
 
 // =======================
 // GLOBAL ERROR HANDLER (silencioso, solo consola)
@@ -195,6 +196,7 @@ function saveAll() {
     localStorage.setItem("bip_route", routeInput.value.trim());
     updateProfileRouteLabel(routeInput.value.trim());
   }
+  syncCurrentSessionItems();
 }
 
 function updateProfileRouteLabel(route) {
@@ -854,6 +856,9 @@ function setupEvents() {
   if (whatsappBtn) whatsappBtn.onclick = shareWhatsApp;
   if (addProductBtn) addProductBtn.onclick = () => openProductModal(lastCode);
 
+  const closeListBtn = getEl("closeListBtn");
+  if (closeListBtn) closeListBtn.onclick = closeCurrentList;
+
   if (clearBtn) {
     clearBtn.onclick = () => {
       if (confirm("¿Limpiar el conteo actual?")) {
@@ -1056,6 +1061,10 @@ function applyRoleGating(profile) {
     el.classList.toggle("hidden", !canManageUsers);
   });
 
+  document.querySelectorAll("[data-route-only]").forEach((el) => {
+    el.classList.toggle("hidden", profile.role !== "route");
+  });
+
   const routeInput = getEl("routeInput");
   if (profile.role === "route" && routeInput) {
     routeInput.value = profile.route_code || "";
@@ -1110,7 +1119,13 @@ async function afterLogin(user) {
 
   // Ahora que hay sesión, refrescamos el catálogo compartido desde Supabase.
   await loadProducts();
-  render();
+
+  // Si es una ruta, retomamos su lista abierta (o creamos una nueva).
+  if (profile.role === "route") {
+    await initSessionForRoute();
+  } else {
+    render();
+  }
 }
 
 async function handleLogin() {
@@ -1155,6 +1170,7 @@ async function handleLogout() {
   if (supabaseClient) await supabaseClient.auth.signOut();
   currentUser = null;
   currentProfile = null;
+  currentSession = null;
   location.reload();
 }
 
@@ -1358,6 +1374,136 @@ async function rejectPendingRoute(userId) {
   }
 
   loadPendingRoutes();
+}
+
+// =======================
+// LISTAS DE ESCANEO (scan_sessions) — solo para role "route"
+// =======================
+async function findOrCreateOpenSession() {
+  if (!supabaseClient || !currentUser || !currentProfile) return null;
+  if (currentProfile.role !== "route" || !currentProfile.route_code) return null;
+
+  const routeCode = currentProfile.route_code;
+
+  try {
+    const { data: existing, error: findError } = await supabaseClient
+      .from("scan_sessions")
+      .select("*")
+      .eq("route_code", routeCode)
+      .eq("estado", "abierta")
+      .order("abierta_en", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+
+    if (findError) throw findError;
+    if (existing) return existing;
+
+    const { data: created, error: createError } = await supabaseClient
+      .from("scan_sessions")
+      .insert({ route_code: routeCode, user_id: currentUser.id })
+      .select()
+      .single();
+
+    if (createError) throw createError;
+    return created;
+  } catch (e) {
+    console.error("Error obteniendo/creando lista de escaneo:", e);
+    return null;
+  }
+}
+
+async function loadSessionItemsIntoCounts(sessionId) {
+  if (!supabaseClient || !sessionId) return;
+
+  const { data, error } = await supabaseClient
+    .from("scan_session_items")
+    .select("*")
+    .eq("session_id", sessionId);
+
+  if (error) {
+    console.error("Error cargando items de la lista:", error);
+    return;
+  }
+
+  const loaded = {};
+  (data || []).forEach((row) => {
+    loaded[normalize(row.upc)] = {
+      UPC: row.upc,
+      SKU: row.sku || "N/A",
+      Producto: row.producto || "",
+      UnidadesCaja: Number(row.unidades_caja) || 1,
+      Foto: row.foto || "",
+      Cajas: Number(row.cajas) || 0
+    };
+  });
+
+  counts = loaded;
+}
+
+// Reemplaza por completo los items de la sesión actual con lo que hay en "counts".
+// Simple y confiable: borra y vuelve a insertar (las listas son chicas, no hay problema de tamaño).
+async function syncCurrentSessionItems() {
+  if (!supabaseClient || !currentSession || !currentProfile || currentProfile.role !== "route") return;
+
+  try {
+    await supabaseClient.from("scan_session_items").delete().eq("session_id", currentSession.id);
+
+    const rows = Object.values(counts).map((item) => ({
+      session_id: currentSession.id,
+      upc: item.UPC,
+      sku: item.SKU,
+      producto: item.Producto,
+      unidades_caja: item.UnidadesCaja,
+      cajas: item.Cajas,
+      foto: item.Foto
+    }));
+
+    if (rows.length) {
+      const { error } = await supabaseClient.from("scan_session_items").insert(rows);
+      if (error) console.error("Error sincronizando lista de escaneo:", error);
+    }
+  } catch (e) {
+    console.error("Error sincronizando lista de escaneo:", e);
+  }
+}
+
+async function initSessionForRoute() {
+  if (!currentProfile || currentProfile.role !== "route") return;
+
+  currentSession = await findOrCreateOpenSession();
+  if (currentSession) {
+    await loadSessionItemsIntoCounts(currentSession.id);
+    render();
+  }
+}
+
+async function closeCurrentList() {
+  if (!currentSession) return;
+  if (!confirm("¿Cerrar esta lista? Ya no podrás modificarla después.")) return;
+
+  const { error } = await supabaseClient
+    .from("scan_sessions")
+    .update({ estado: "cerrada", cerrada_en: new Date().toISOString(), cerrada_por: currentUser?.id || null })
+    .eq("id", currentSession.id);
+
+  if (error) {
+    alert("❌ No se pudo cerrar la lista: " + error.message);
+    return;
+  }
+
+  alert("✅ Lista cerrada. Se abrió una lista nueva para seguir escaneando.");
+
+  // Abrimos una lista nueva y limpiamos la pantalla para seguir escaneando.
+  counts = {};
+  saveAllLocalOnly();
+  render();
+  await initSessionForRoute();
+}
+
+// Igual que saveAll() pero sin re-sincronizar la sesión (para evitar
+// un ciclo al vaciar counts justo antes de abrir la lista nueva).
+function saveAllLocalOnly() {
+  localStorage.setItem("bip_counts", JSON.stringify(counts));
 }
 
 // =======================
