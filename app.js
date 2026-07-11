@@ -1,4 +1,4 @@
-alert("Bimbo Inventory Pro — v9.2: fix validación de configuración Supabase ✅");
+alert("Bimbo Inventory Pro — v9.3: login muestra el error real de Supabase para diagnosticar ✅");
 
 // =======================
 // SUPABASE (login y roles)
@@ -1057,7 +1057,10 @@ async function handleLogin() {
   }
 
   if (error) {
-    showLogin("Correo o contraseña incorrectos.");
+    console.error("Error de login Supabase:", error);
+    // Mostramos el mensaje real de Supabase para poder diagnosticar
+    // (puede ser contraseña incorrecta, correo no confirmado, etc.)
+    showLogin(error.message || "Correo o contraseña incorrectos.");
     return;
   }
 
