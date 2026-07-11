@@ -214,6 +214,18 @@ button{border:0;border-radius:14px;padding:13px 14px;font-size:14px;font-weight:
 .scan-toast-text strong{font-size:14px}
 .scan-toast-text span{font-size:12px;color:var(--gray)}
 
+/* ===================== APROBACIONES PENDIENTES ===================== */
+.pending-item{
+  display:flex;align-items:center;justify-content:space-between;gap:10px;
+  background:var(--light-gray);border-radius:14px;padding:10px 12px;margin-bottom:8px;
+}
+.pending-item-info strong{display:block;font-size:14px}
+.pending-item-info span{font-size:12px;color:var(--gray)}
+.pending-item-actions{display:flex;gap:6px}
+.pending-item-actions button{padding:8px 10px;font-size:13px;border-radius:10px;font-weight:900}
+.approve-btn{background:var(--green);color:#fff}
+.reject-btn{background:#fdecec;color:var(--red-dark)}
+
 /* ===================== LOGIN ===================== */
 .login-screen{
   position:fixed;inset:0;z-index:500;background:#fff;

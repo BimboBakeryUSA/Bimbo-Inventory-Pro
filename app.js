@@ -1,4 +1,4 @@
-alert("Bimbo Inventory Pro — v10: panel de Usuarios (Admin/Corporativo) conectado a Edge Function ✅");
+alert("Bimbo Inventory Pro — v11: aprobación de rutas pendientes desde la app (Admin) ✅");
 
 // =======================
 // SUPABASE (login y roles)
@@ -737,6 +737,7 @@ function downloadTemplate() {
 function openDrawer() {
   getEl("sideDrawer")?.classList.add("open");
   getEl("drawerOverlay")?.classList.remove("hidden");
+  if (currentProfile && currentProfile.role === "admin") loadPendingRoutes();
 }
 
 function closeDrawer() {
@@ -899,6 +900,9 @@ function setupEvents() {
   if (saveUserBtn) saveUserBtn.onclick = handleCreateUser;
   if (newUserRole) newUserRole.addEventListener("change", updateUserRoleFields);
 
+  const refreshPendingBtn = getEl("refreshPendingBtn");
+  if (refreshPendingBtn) refreshPendingBtn.onclick = loadPendingRoutes;
+
   // Login
   const loginSubmitBtn = getEl("loginSubmitBtn");
   const loginPassword = getEl("loginPassword");
@@ -1043,6 +1047,7 @@ async function afterLogin(user) {
   currentProfile = profile;
   showApp();
   applyRoleGating(profile);
+  if (profile.role === "admin") loadPendingRoutes();
 }
 
 async function handleLogin() {
@@ -1206,6 +1211,85 @@ async function handleCreateUser() {
   } else {
     alert("✅ Usuario creado correctamente.");
   }
+}
+
+// =======================
+// APROBACIONES PENDIENTES (Admin)
+// =======================
+async function loadPendingRoutes() {
+  const list = getEl("pendingRoutesList");
+  if (!list || !supabaseClient) return;
+
+  if (!currentProfile || currentProfile.role !== "admin") return;
+
+  list.innerHTML = '<p class="help-text">Cargando...</p>';
+
+  const { data, error } = await supabaseClient
+    .from("profiles")
+    .select("id, nombre, route_code, created_at")
+    .eq("estado", "pendiente")
+    .order("created_at", { ascending: true });
+
+  if (error) {
+    list.innerHTML = '<p class="help-text">Error cargando pendientes.</p>';
+    console.error(error);
+    return;
+  }
+
+  if (!data || data.length === 0) {
+    list.innerHTML = '<p class="help-text">No hay rutas pendientes de aprobación.</p>';
+    return;
+  }
+
+  list.innerHTML = "";
+  data.forEach((row) => {
+    const item = document.createElement("div");
+    item.className = "pending-item";
+    item.innerHTML = `
+      <div class="pending-item-info">
+        <strong>${row.nombre || "Sin nombre"}</strong>
+        <span>Ruta ${row.route_code || "N/A"}</span>
+      </div>
+      <div class="pending-item-actions">
+        <button class="approve-btn">Aprobar</button>
+        <button class="reject-btn">Rechazar</button>
+      </div>
+    `;
+
+    item.querySelector(".approve-btn").onclick = () => approvePendingRoute(row.id);
+    item.querySelector(".reject-btn").onclick = () => rejectPendingRoute(row.id);
+
+    list.appendChild(item);
+  });
+}
+
+async function approvePendingRoute(userId) {
+  const { error } = await supabaseClient
+    .from("profiles")
+    .update({ estado: "activo", aprobado_por: currentUser?.id || null })
+    .eq("id", userId);
+
+  if (error) {
+    alert("❌ No se pudo aprobar: " + error.message);
+    return;
+  }
+
+  loadPendingRoutes();
+}
+
+async function rejectPendingRoute(userId) {
+  if (!confirm("¿Rechazar y borrar esta cuenta pendiente?")) return;
+
+  const { data, error } = await supabaseClient.functions.invoke("delete-user", {
+    body: { userId },
+  });
+
+  if (error || (data && data.error)) {
+    alert("❌ No se pudo rechazar: " + ((data && data.error) || error?.message));
+    return;
+  }
+
+  loadPendingRoutes();
 }
 
 // =======================
