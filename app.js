@@ -38,7 +38,14 @@ let deferredPrompt = null;
 // DATA
 // =======================
 function normalize(value) {
-  return String(value || "").replace(/[^0-9A-Za-z]/g, "").trim();
+  let code = String(value || "").replace(/\D/g, "");
+
+  // 🔧 normalizar códigos largos (EAN13 → quitar primer dígito)
+  if (code.length === 13) {
+    code = code.slice(1);
+  }
+
+  return code;
 }
 
 function defaultProducts() {
