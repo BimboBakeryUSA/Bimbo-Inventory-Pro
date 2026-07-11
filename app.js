@@ -1,4 +1,4 @@
-alert("Bimbo Inventory Pro — v9.1: login con Supabase + roles (admin/corporativo/route) ✅");
+alert("Bimbo Inventory Pro — v9.2: fix validación de configuración Supabase ✅");
 
 // =======================
 // SUPABASE (login y roles)
@@ -11,7 +11,7 @@ const SUPABASE_ANON_KEY = "sb_publishable_-qW3XyldNJgpOk6BLReC3A_HIyZHrHM";
 let supabaseClient = null;
 let supabaseConfigError = null;
 try {
-  if (SUPABASE_URL.startsWith("https://obfikwhukpzelsghowcq.supabase.co") || SUPABASE_ANON_KEY.startsWith("sb_publishable_-qW3XyldNJgpOk6BLReC3A_HIyZHrHM")) {
+  if (!SUPABASE_URL || !SUPABASE_ANON_KEY || SUPABASE_URL.indexOf("PEGA_AQUI") === 0 || SUPABASE_ANON_KEY.indexOf("PEGA_AQUI") === 0) {
     throw new Error("Falta configurar SUPABASE_URL y SUPABASE_ANON_KEY en app.js");
   }
   supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
