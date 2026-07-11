@@ -1,16 +1,9 @@
-alert("APP.JS CARGADO ✅ V6");
-
+alert("APP.JS CARGADO ✅ V7 CC");
 // =======================
-// GLOBAL ERROR HANDLER
+// GLOBAL ERROR HANDLER (silencioso, solo consola)
 // =======================
 window.onerror = function (msg, src, line, col, err) {
-  alert(
-    "❌ ERROR DETECTADO:\n\n" +
-    msg +
-    "\n\n📍 Línea: " + line +
-    "\n📄 Archivo: " + (src || "N/A")
-  );
-  console.error("ERROR GLOBAL:", msg, line, col, err);
+  console.error("ERROR GLOBAL:", msg, "| línea:", line, "| archivo:", src, err);
 };
 
 // =======================
@@ -89,7 +82,13 @@ function saveAll() {
   const routeInput = getEl("routeInput");
   if (routeInput) {
     localStorage.setItem("bip_route", routeInput.value.trim());
+    updateProfileRouteLabel(routeInput.value.trim());
   }
+}
+
+function updateProfileRouteLabel(route) {
+  const label = getEl("profileRouteLabel");
+  if (label) label.textContent = route ? "Ruta: " + route : "Sin ruta asignada";
 }
 
 function findProduct(code) {
@@ -304,8 +303,6 @@ function processBarcode(rawCode) {
 }
 
 async function startCamera() {
-  console.log("📷 Iniciando cámara...");
-
   if (scanning) return;
 
   if (typeof Html5Qrcode === "undefined") {
@@ -341,8 +338,6 @@ async function startCamera() {
       statusPill.textContent = "Activo";
       statusPill.className = "status-pill on";
     }
-
-    console.log("✅ Cámara activa");
   } catch (err) {
     console.error(err);
     alert("❌ Error cámara: " + err);
@@ -366,8 +361,6 @@ async function stopCamera() {
     statusPill.textContent = "Inactivo";
     statusPill.className = "status-pill off";
   }
-
-  console.log("🛑 Cámara detenida");
 }
 
 // =======================
@@ -459,7 +452,6 @@ function upsertProductFromForm() {
 
   closeProductModal();
   render();
-  alert("✅ Producto guardado");
 }
 
 // =======================
@@ -588,6 +580,29 @@ function downloadTemplate() {
 }
 
 // =======================
+// DRAWER / MENÚ / PERFIL
+// =======================
+function openDrawer() {
+  getEl("sideDrawer")?.classList.add("open");
+  getEl("drawerOverlay")?.classList.remove("hidden");
+}
+
+function closeDrawer() {
+  getEl("sideDrawer")?.classList.remove("open");
+  getEl("drawerOverlay")?.classList.add("hidden");
+}
+
+function toggleProfileMenu(forceClose = false) {
+  const menu = getEl("profileMenu");
+  if (!menu) return;
+  if (forceClose) {
+    menu.classList.add("hidden");
+    return;
+  }
+  menu.classList.toggle("hidden");
+}
+
+// =======================
 // EVENTS
 // =======================
 function setupEvents() {
@@ -609,8 +624,16 @@ function setupEvents() {
   const newUpc = getEl("newUpc");
   const installBtn = getEl("installBtn");
 
+  const menuBtn = getEl("menuBtn");
+  const closeDrawerBtn = getEl("closeDrawerBtn");
+  const drawerOverlay = getEl("drawerOverlay");
+  const profileBtn = getEl("profileBtn");
+  const profileHelpBtn = getEl("profileHelpBtn");
+  const profileLogoutBtn = getEl("profileLogoutBtn");
+
   if (routeInput) {
     routeInput.value = routeValue;
+    updateProfileRouteLabel(routeValue);
     routeInput.addEventListener("input", saveAll);
   }
 
@@ -680,7 +703,44 @@ function setupEvents() {
     });
   }
 
+  // Menú hamburguesa
+  if (menuBtn) menuBtn.onclick = () => { toggleProfileMenu(true); openDrawer(); };
+  if (closeDrawerBtn) closeDrawerBtn.onclick = closeDrawer;
+  if (drawerOverlay) drawerOverlay.onclick = closeDrawer;
+
+  // Menú de perfil
+  if (profileBtn) {
+    profileBtn.onclick = (e) => {
+      e.stopPropagation();
+      closeDrawer();
+      toggleProfileMenu();
+    };
+  }
+  document.addEventListener("click", (e) => {
+    const menu = getEl("profileMenu");
+    if (!menu || menu.classList.contains("hidden")) return;
+    if (!menu.contains(e.target) && e.target !== profileBtn) {
+      toggleProfileMenu(true);
+    }
+  });
+  if (profileHelpBtn) {
+    profileHelpBtn.onclick = () => {
+      toggleProfileMenu(true);
+      alert("Bimbo Inventory Pro\nEscanea productos con cámara o scanner Bluetooth NETUM.\nUsa el menú ☰ para configurar ruta y base de productos.");
+    };
+  }
+  if (profileLogoutBtn) {
+    profileLogoutBtn.onclick = () => {
+      toggleProfileMenu(true);
+      alert("Función de cuentas próximamente.");
+    };
+  }
+
   window.addEventListener("keydown", (e) => {
+    if (e.key === "Escape") {
+      closeDrawer();
+      toggleProfileMenu(true);
+    }
     const active = document.activeElement;
     if (active && active.tagName === "INPUT") return;
     getEl("scannerInput")?.focus();
@@ -713,7 +773,6 @@ document.addEventListener("DOMContentLoaded", async () => {
     setupEvents();
     render();
     setTimeout(() => getEl("scannerInput")?.focus(), 300);
-    console.log("✅ APP INICIADA");
   } catch (e) {
     console.error("INIT ERROR:", e);
     alert("❌ Error en INIT: " + e.message);
