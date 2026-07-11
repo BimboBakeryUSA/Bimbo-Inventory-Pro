@@ -740,19 +740,27 @@ async function getProfile(userId) {
 }
 //+++++++++++++++++++++++
 async function doLogin() {
+  alert("LOGIN CLICK");
+
   const email = prompt("Email:");
   const password = prompt("Password:");
 
-  const user = await login(email, password);
-  if (!user) return;
+  const { data, error } = await supabase.auth.signInWithPassword({
+    email,
+    password
+  });
 
-  const profile = await getProfile(user.id);
+  if (error) {
+    alert(error.message);
+    return;
+  }
 
-  console.log("USER:", user);
-  console.log("PROFILE:", profile);
-
-  alert("Bienvenido " + profile.name + " (" + profile.role + ")");
+  alert("Login OK: " + data.user.email);
 }
+
+
+
+
 //++++++++++++++++++++++++
 // =======================
 // INIT
