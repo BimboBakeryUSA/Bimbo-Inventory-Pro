@@ -1,5 +1,5 @@
 alert("Bimbo Inventory Pro — v4: cámara fullscreen + popup de escaneo ✅");
-
+ 
 // =======================
 // GLOBAL ERROR HANDLER (silencioso, solo consola)
 // =======================
