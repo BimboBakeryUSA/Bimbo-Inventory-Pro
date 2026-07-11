@@ -11,7 +11,7 @@ const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBh
 let supabaseClient = null;
 let supabaseConfigError = null;
 try {
-  if (SUPABASE_URL.startsWith("PEGA_AQUI") || SUPABASE_ANON_KEY.startsWith("PEGA_AQUI")) {
+  if (SUPABASE_URL.startsWith("https://obfikwhukpzelsghowcq.supabase.co") || SUPABASE_ANON_KEY.startsWith("eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im9iZmlrd2h1a3B6ZWxzZ2hvd2NxIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODM3MjU3NzMsImV4cCI6MjA5OTMwMTc3M30.sKfI_riLcFZA9GyGM6ugW3ELrNb-kLxGNVE53Dv4G70")) {
     throw new Error("Falta configurar SUPABASE_URL y SUPABASE_ANON_KEY en app.js");
   }
   supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
