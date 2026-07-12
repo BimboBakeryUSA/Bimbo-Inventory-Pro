@@ -213,13 +213,25 @@ function updateProfileRouteLabel(route) {
   if (label) label.textContent = route ? "Ruta: " + route : "Sin ruta asignada";
 }
 
+// Código "núcleo" de 10 dígitos: al código normalizado (hasta 11 dígitos)
+// le quitamos el primer dígito. Los productos cargados desde el price
+// list vienen con UPC de 10 dígitos (sin el dígito inicial ni el
+// verificador), así que para encontrarlos al escanear comparamos también
+// por este núcleo, además del match exacto de siempre.
+function coreCode(value) {
+  const norm = normalize(value);
+  return norm.length > 10 ? norm.slice(-10) : norm;
+}
+
 function findProduct(code) {
   const clean = normalize(code);
+  const core = coreCode(code);
   return (
     products.find(
       (p) =>
         normalize(p.UPC) === clean ||
-        normalize(p.SKU) === clean
+        normalize(p.SKU) === clean ||
+        coreCode(p.UPC) === core
     ) || {
       UPC: clean,
       SKU: "N/A",
