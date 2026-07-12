@@ -1,4 +1,4 @@
-alert("Bimbo Inventory Pro — v23: pantalla 'Ver usuarios' (aprobar/eliminar) ✅");
+alert("Bimbo Inventory Pro — v24: match de UPC de 10 dígitos (productos del price list) ✅");
 
 // =======================
 // SUPABASE (login y roles)
