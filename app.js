@@ -1,4 +1,4 @@
-alert("Bimbo Inventory Pro — v24: match de UPC de 10 dígitos (productos del price list) ✅");
+alert("Bimbo Inventory Pro — v25: lista ordenada por último escaneado ✅");
 
 // =======================
 // SUPABASE (login y roles)
@@ -257,7 +257,8 @@ function migrateCountsIfNeeded() {
         Producto: p.Producto || ("Código no registrado: " + code),
         UnidadesCaja: Number(p.UnidadesCaja) || 1,
         Foto: p.Foto || "",
-        Cajas: Number(item.cantidad) || 0
+        Cajas: Number(item.cantidad) || 0,
+        _ts: item._ts || Date.now()
       };
     } else if (item && Object.prototype.hasOwnProperty.call(item, "UPC")) {
       const key = normalize(item.UPC);
@@ -267,7 +268,8 @@ function migrateCountsIfNeeded() {
         Producto: item.Producto || "Sin nombre",
         UnidadesCaja: Number(item.UnidadesCaja) || 1,
         Foto: item.Foto || "",
-        Cajas: Number(item.Cajas) || 0
+        Cajas: Number(item.Cajas) || 0,
+        _ts: item._ts || Date.now()
       };
     }
   });
@@ -321,7 +323,9 @@ function render() {
     list.innerHTML = '<div class="empty-state">Todavía no hay productos escaneados.</div>';
   } else {
     items
-      .sort((a, b) => a.Producto.localeCompare(b.Producto))
+      // Más reciente escaneado primero. Si vuelves a escanear uno que ya
+      // estaba en la lista, sube al principio (se le actualiza _ts).
+      .sort((a, b) => (b._ts || 0) - (a._ts || 0))
       .forEach((item) => {
         totalCases += Number(item.Cajas) || 0;
         totalUnits += (Number(item.Cajas) || 0) * (Number(item.UnidadesCaja) || 1);
@@ -462,6 +466,9 @@ function processBarcode(rawCode) {
   }
 
   counts[key].Cajas += 1;
+  // Marca este momento como el último escaneo de este producto, para que
+  // en render() suba al principio de la lista (aunque ya existiera).
+  counts[key]._ts = Date.now();
 
   const lastScanText = getEl("lastScanText");
   if (lastScanText) lastScanText.textContent = "Último: " + counts[key].Producto;
@@ -2050,7 +2057,11 @@ async function loadSessionItemsIntoCounts(sessionId) {
       Producto: row.producto || "",
       UnidadesCaja: Number(row.unidades_caja) || 1,
       Foto: row.foto || "",
-      Cajas: Number(row.cajas) || 0
+      Cajas: Number(row.cajas) || 0,
+      // Usamos la fecha de última actualización de Supabase como orden
+      // inicial, para que al reanudar una lista se respete el orden en
+      // que se fue escaneando cada producto.
+      _ts: row.actualizado_en ? new Date(row.actualizado_en).getTime() : Date.now()
     };
   });
 
